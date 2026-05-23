@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+dist/
+*.spec
+.vscode/
+.idea/
+combined_master.md
+*.md
+!README.md
+Output/
