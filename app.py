@@ -25,6 +25,12 @@ class App(Tk):
         self.title("AI DocPrep")
         self.geometry("700x700")
         
+        if sys.platform.startswith("win"):
+            try:
+                self.iconbitmap("icon.ico")
+            except:
+                pass
+        
         # Default Settings
         self.open_folder_var = ctk.BooleanVar(value=True)
         self.overwrite_var = ctk.StringVar(value="overwrite")
