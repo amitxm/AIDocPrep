@@ -2,9 +2,10 @@ import sys
 import os
 import threading
 import subprocess
-import customtkinter as ctk
+import tkinter
 from tkinter import filedialog
 from tkinterdnd2 import TkinterDnD, DND_FILES
+import customtkinter as ctk
 
 from backend.converter import convert_file, convert_folder
 from backend.combiner import combine_folder
@@ -13,14 +14,10 @@ from backend.combiner import combine_folder
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-class Tk(ctk.CTk, TkinterDnD.DnDWrapper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.TkdndVersion = TkinterDnD._require(self)
-
-class App(Tk):
+class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.TkdndVersion = TkinterDnD._require(self)
 
         self.title("AI DocPrep")
         self.geometry("700x700")
@@ -58,6 +55,7 @@ class App(Tk):
         self.setup_main_card()
         self.setup_action_button()
         self.setup_log_area()
+        self.setup_menu()
         
         # Check sys.argv for CLI run
         if len(sys.argv) > 1:
@@ -66,6 +64,44 @@ class App(Tk):
                 self.path_entry.insert(0, path)
                 self.on_path_changed()
                 self.run_conversion()
+
+    def setup_menu(self):
+        # Create menu bar
+        menu_bar = tkinter.Menu(self)
+        
+        # macOS App Menu (first menu cascade is automatically mapped as the App Menu on macOS)
+        app_menu = tkinter.Menu(menu_bar, tearoff=0)
+        app_menu.add_command(label="About AI DocPrep", command=self.show_about)
+        app_menu.add_separator()
+        app_menu.add_command(label="Preferences...", command=self.open_settings)
+        app_menu.add_separator()
+        app_menu.add_command(label="Quit AI DocPrep", command=self.quit)
+        menu_bar.add_cascade(label="AI DocPrep", menu=app_menu)
+        
+        # File Menu
+        file_menu = tkinter.Menu(menu_bar, tearoff=0)
+        file_menu.add_command(label="Browse File...", command=self.browse_file)
+        file_menu.add_command(label="Browse Folder...", command=self.browse_folder)
+        file_menu.add_separator()
+        file_menu.add_command(label="Close Window", command=self.withdraw)
+        menu_bar.add_cascade(label="File", menu=file_menu)
+        
+        # Edit Menu (CRITICAL for macOS Copy/Paste)
+        edit_menu = tkinter.Menu(menu_bar, tearoff=0)
+        edit_menu.add_command(label="Undo", accelerator="Cmd+Z", command=lambda: self.focus_get().event_generate("<<Undo>>"))
+        edit_menu.add_command(label="Redo", accelerator="Shift+Cmd+Z", command=lambda: self.focus_get().event_generate("<<Redo>>"))
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Cut", accelerator="Cmd+X", command=lambda: self.focus_get().event_generate("<<Cut>>"))
+        edit_menu.add_command(label="Copy", accelerator="Cmd+C", command=lambda: self.focus_get().event_generate("<<Copy>>"))
+        edit_menu.add_command(label="Paste", accelerator="Cmd+V", command=lambda: self.focus_get().event_generate("<<Paste>>"))
+        edit_menu.add_command(label="Select All", accelerator="Cmd+A", command=lambda: self.focus_get().event_generate("<<SelectAll>>"))
+        menu_bar.add_cascade(label="Edit", menu=edit_menu)
+        
+        self.config(menu=menu_bar)
+
+    def show_about(self):
+        from tkinter import messagebox
+        messagebox.showinfo("About AI DocPrep", "AI DocPrep\nVersion 1.0.0\n\nThe ultimate pre-processor for feeding documents to LLMs.")
 
     def setup_header(self):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
