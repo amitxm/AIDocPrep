@@ -1,5 +1,5 @@
 Write-Host "Building Windows Executable (Folder Mode for Installer)..."
-pyinstaller -y --noconsole --name AIDocPrep --icon icon.ico --collect-data customtkinter --collect-data tkinterdnd2 --collect-all magika app.py
+pyinstaller -y --noconsole --name AIDocPrep --icon icon.ico --exclude-module speech_recognition --exclude-module pocketsphinx --exclude-module pydub --exclude-module matplotlib --exclude-module scipy --exclude-module IPython --exclude-module tkinter.test --exclude-module unittest --exclude-module pydoc --collect-data customtkinter --collect-data tkinterdnd2 --collect-all magika app.py
 
 Write-Host "Copying LICENSE..."
 Copy-Item "LICENSE" "dist\AIDocPrep\LICENSE" -Force
