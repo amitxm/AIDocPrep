@@ -33,7 +33,7 @@ class App(ctk.CTk):
         self.overwrite_var = ctk.StringVar(value="overwrite")
         self.yaml_var = ctk.BooleanVar(value=True)
         self.toc_var = ctk.BooleanVar(value=True)
-        self.only_combined_var = ctk.BooleanVar(value=False)
+        self.only_combined_var = ctk.BooleanVar(value=True)
         self.redact_var = ctk.BooleanVar(value=False)
         self.cancel_flag = False
         
@@ -45,7 +45,7 @@ class App(ctk.CTk):
         self.ext_vtt_var = ctk.BooleanVar(value=True)
         self.ext_html_var = ctk.BooleanVar(value=True)
         
-        self.combine_var = ctk.BooleanVar(value=False)
+        self.combine_var = ctk.BooleanVar(value=True)
 
         # Main layout
         self.grid_columnconfigure(0, weight=1)
@@ -149,9 +149,13 @@ class App(ctk.CTk):
         self.browse_folder_btn = ctk.CTkButton(card1, text="Browse Folder", width=100, command=self.browse_folder)
         self.browse_folder_btn.grid(row=1, column=2, padx=(5, 15), pady=(5, 10))
         
-        self.combine_switch = ctk.CTkSwitch(card1, text="Combine folder output into single master file", variable=self.combine_var)
-        self.combine_switch.grid(row=2, column=0, columnspan=3, padx=15, pady=(5, 15), sticky="w")
+        self.combine_switch = ctk.CTkSwitch(card1, text="Combine folder output into single master file", variable=self.combine_var, command=self.on_combine_changed)
+        self.combine_switch.grid(row=2, column=0, columnspan=3, padx=15, pady=(5, 2), sticky="w")
         self.combine_switch.configure(state="disabled")
+        
+        self.delete_individuals_switch = ctk.CTkSwitch(card1, text="Only keep combined file (Delete individual files)", variable=self.only_combined_var)
+        self.delete_individuals_switch.grid(row=3, column=0, columnspan=3, padx=35, pady=(2, 15), sticky="w")
+        self.delete_individuals_switch.configure(state="disabled")
         
         self.path_entry.drop_target_register(DND_FILES)
         self.path_entry.dnd_bind('<<Drop>>', self.on_drop)
@@ -205,9 +209,6 @@ class App(ctk.CTk):
         chk_toc = ctk.CTkCheckBox(settings_win, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
         chk_toc.pack(padx=20, pady=(5, 5), anchor="w")
         
-        chk_only_combined = ctk.CTkCheckBox(settings_win, text="Only Keep Combined File (Delete Individuals)", variable=self.only_combined_var)
-        chk_only_combined.pack(padx=20, pady=(5, 5), anchor="w")
-        
         chk_redact = ctk.CTkCheckBox(settings_win, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var)
         chk_redact.pack(padx=20, pady=(5, 10), anchor="w")
         
@@ -233,13 +234,23 @@ class App(ctk.CTk):
         ctk.CTkCheckBox(ext_frame2, text=".vtt", variable=self.ext_vtt_var).pack(side="left", padx=10, pady=5)
         ctk.CTkCheckBox(ext_frame2, text=".html", variable=self.ext_html_var).pack(side="left", padx=10, pady=5)
 
+    def on_combine_changed(self):
+        if self.combine_var.get() and os.path.isdir(self.path_entry.get()):
+            self.delete_individuals_switch.configure(state="normal")
+        else:
+            self.delete_individuals_switch.configure(state="disabled")
+
     def on_path_changed(self):
         path = self.path_entry.get()
         if os.path.isdir(path):
             self.combine_switch.configure(state="normal")
+            if self.combine_var.get():
+                self.delete_individuals_switch.configure(state="normal")
+            else:
+                self.delete_individuals_switch.configure(state="disabled")
         else:
             self.combine_switch.configure(state="disabled")
-            self.combine_switch.deselect()
+            self.delete_individuals_switch.configure(state="disabled")
 
     def on_drop(self, event):
         path = event.data
