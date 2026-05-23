@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Building macOS App Bundle..."
-pyinstaller --windowed --name AIDocPrep --collect-data customtkinter --collect-data tkinterdnd2 --collect-all magika app.py
+pyinstaller -y --windowed --name AIDocPrep --collect-data customtkinter --collect-data tkinterdnd2 --collect-all magika app.py
 
 echo "Copying LICENSE..."
 cp LICENSE dist/AIDocPrep.app/Contents/Resources/LICENSE
