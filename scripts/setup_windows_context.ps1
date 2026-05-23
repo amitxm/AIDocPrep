@@ -1,4 +1,4 @@
-$executablePath = Join-Path $PSScriptRoot "..\dist\MarkItDownMultiTool\MarkItDownMultiTool.exe"
+$executablePath = Join-Path $PSScriptRoot "..\dist\AIDocPrep\AIDocPrep.exe"
 
 if (-Not (Test-Path $executablePath)) {
     Write-Host "Warning: Executable not found. Please build the application first."
