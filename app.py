@@ -69,34 +69,51 @@ class App(ctk.CTk):
         # Create menu bar
         menu_bar = tkinter.Menu(self)
         
-        # macOS App Menu (first menu cascade is automatically mapped as the App Menu on macOS)
-        app_menu = tkinter.Menu(menu_bar, tearoff=0)
-        app_menu.add_command(label="About AI DocPrep", command=self.show_about)
-        app_menu.add_separator()
-        app_menu.add_command(label="Preferences...", command=self.open_settings)
-        app_menu.add_separator()
-        app_menu.add_command(label="Quit AI DocPrep", command=self.quit)
-        menu_bar.add_cascade(label="AI DocPrep", menu=app_menu)
+        accel_key = "Cmd+" if sys.platform == "darwin" else "Ctrl+"
         
         # File Menu
         file_menu = tkinter.Menu(menu_bar, tearoff=0)
         file_menu.add_command(label="Browse File...", command=self.browse_file)
         file_menu.add_command(label="Browse Folder...", command=self.browse_folder)
-        file_menu.add_separator()
-        file_menu.add_command(label="Close Window", command=self.withdraw)
-        menu_bar.add_cascade(label="File", menu=file_menu)
         
         # Edit Menu (CRITICAL for macOS Copy/Paste)
         edit_menu = tkinter.Menu(menu_bar, tearoff=0)
-        edit_menu.add_command(label="Undo", accelerator="Cmd+Z", command=lambda: self.focus_get().event_generate("<<Undo>>"))
-        edit_menu.add_command(label="Redo", accelerator="Shift+Cmd+Z", command=lambda: self.focus_get().event_generate("<<Redo>>"))
+        edit_menu.add_command(label="Undo", accelerator=f"{accel_key}Z", command=lambda: self.focus_get().event_generate("<<Undo>>"))
+        edit_menu.add_command(label="Redo", accelerator=f"Shift+{accel_key}Z", command=lambda: self.focus_get().event_generate("<<Redo>>"))
         edit_menu.add_separator()
-        edit_menu.add_command(label="Cut", accelerator="Cmd+X", command=lambda: self.focus_get().event_generate("<<Cut>>"))
-        edit_menu.add_command(label="Copy", accelerator="Cmd+C", command=lambda: self.focus_get().event_generate("<<Copy>>"))
-        edit_menu.add_command(label="Paste", accelerator="Cmd+V", command=lambda: self.focus_get().event_generate("<<Paste>>"))
-        edit_menu.add_command(label="Select All", accelerator="Cmd+A", command=lambda: self.focus_get().event_generate("<<SelectAll>>"))
-        menu_bar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label="Cut", accelerator=f"{accel_key}X", command=lambda: self.focus_get().event_generate("<<Cut>>"))
+        edit_menu.add_command(label="Copy", accelerator=f"{accel_key}C", command=lambda: self.focus_get().event_generate("<<Copy>>"))
+        edit_menu.add_command(label="Paste", accelerator=f"{accel_key}V", command=lambda: self.focus_get().event_generate("<<Paste>>"))
+        edit_menu.add_command(label="Select All", accelerator=f"{accel_key}A", command=lambda: self.focus_get().event_generate("<<SelectAll>>"))
         
+        # Help/About Menu
+        help_menu = tkinter.Menu(menu_bar, tearoff=0)
+        help_menu.add_command(label="About AI DocPrep", command=self.show_about)
+        
+        if sys.platform == "darwin":
+            # On macOS, App Menu goes first
+            app_menu = tkinter.Menu(menu_bar, tearoff=0)
+            app_menu.add_command(label="About AI DocPrep", command=self.show_about)
+            app_menu.add_separator()
+            app_menu.add_command(label="Preferences...", command=self.open_settings)
+            app_menu.add_separator()
+            app_menu.add_command(label="Quit AI DocPrep", command=self.quit)
+            menu_bar.add_cascade(label="AI DocPrep", menu=app_menu)
+            
+            file_menu.add_separator()
+            file_menu.add_command(label="Close Window", command=self.withdraw)
+            menu_bar.add_cascade(label="File", menu=file_menu)
+            menu_bar.add_cascade(label="Edit", menu=edit_menu)
+        else:
+            # On Windows/Linux, standard menu order: File, Edit, Help
+            file_menu.add_separator()
+            file_menu.add_command(label="Settings...", command=self.open_settings)
+            file_menu.add_separator()
+            file_menu.add_command(label="Exit", command=self.quit)
+            menu_bar.add_cascade(label="File", menu=file_menu)
+            menu_bar.add_cascade(label="Edit", menu=edit_menu)
+            menu_bar.add_cascade(label="Help", menu=help_menu)
+            
         self.config(menu=menu_bar)
 
     def show_about(self):
