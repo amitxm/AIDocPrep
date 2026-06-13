@@ -53,7 +53,10 @@ def generate_yaml_frontmatter(original_file: str) -> str:
     return yaml
 
 def redact_pii_content(text: str) -> str:
-    """Scans text and replaces common PII patterns with redacted labels."""
+    """Scans text and replaces common PII, API keys, credentials, and network addresses with redacted labels."""
+    # SSH / PEM Private Keys
+    text = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----\s*[\s\S]+?\s*-----END [A-Z ]+ PRIVATE KEY-----', '[REDACTED_PRIVATE_KEY]', text)
+
     # Email
     text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED_EMAIL]', text)
     
@@ -66,8 +69,39 @@ def redact_pii_content(text: str) -> str:
     # Phone (US/Generic: (555) 123-4567, 555-123-4567, etc.)
     text = re.sub(r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', '[REDACTED_PHONE]', text)
     
+    # API Keys & Tokens
+    # AWS Access Key ID
+    text = re.sub(r'\b(AKIA|ASCA|ASIA)[0-9A-Z]{16}\b', '[REDACTED_AWS_KEY_ID]', text)
+    # OpenAI API Key
+    text = re.sub(r'\bsk-[a-zA-Z0-9]{20,}\b', '[REDACTED_OPENAI_KEY]', text)
+    # Slack Tokens
+    text = re.sub(r'\bxox[baprs]-[0-9a-zA-Z-]{10,}\b', '[REDACTED_SLACK_TOKEN]', text)
+    
+    # Generic secret/token/password assignments (e.g. secret = "value" or "password": "value")
+    text = re.sub(
+        r'([\'\x22]?)\b(api_key|apikey|secret|token|password|passwd|private_key)\b\1(\s*[:=]\s*)([\'\x22]?)([^\x22\'\s]{8,})\4',
+        r'\1\2\1\3\4[REDACTED_CREDENTIAL]\4',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Database Connection Strings (redacting password in URIs)
+    # e.g., postgresql://user:password@localhost:5432/db
+    text = re.sub(
+        r'\b(mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|sqlite|mssql)://([^:]+):([^@\s]+)@([^\s]+)',
+        r'\1://\2:[REDACTED_PASSWORD]@\4',
+        text,
+        flags=re.IGNORECASE
+    )
+
     # IP Address (IPv4)
     text = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '[REDACTED_IP]', text)
+    
+    # IP Address (IPv6)
+    text = re.sub(r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', '[REDACTED_IPV6]', text)
+
+    # MAC Address
+    text = re.sub(r'\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b', '[REDACTED_MAC]', text)
     
     return text
 

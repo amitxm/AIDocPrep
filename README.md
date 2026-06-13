@@ -44,6 +44,13 @@ Vector search is imprecise and depends on the user using the right search terms.
 ### 4. RAG is better with clean Markdown
 If your dataset is so large that you *must* use RAG, chunking raw PDFs or HTML is notoriously messy. Running your documents through AI DocPrep first gives you clean Markdown tables, lists, and headers, which makes your embedding model and chunking strategy much more accurate.
 
+### 5. Why not just use Claude Desktop, Cursor, or Codex directly on raw files?
+While code editors and chat clients can index or parse local files, they have major limitations:
+- **Format limits:** They often fail or hallucinate when parsing presentation slides (`.pptx`) or complex spreadsheets (`.xlsx`). AI DocPrep uses dedicated conversion engines (like `MarkItDown`) to translate tables and layouts into clean Markdown representations that LLMs actually understand.
+- **Privacy:** Native chat apps upload your raw files straight to the cloud. AI DocPrep runs completely offline, meaning you can redact PII (SSNs, emails, credit cards, IP addresses) *before* the text leaves your machine.
+- **Mislabeled extensions:** Native tools rely on file extensions. AI DocPrep uses Google's `Magika` deep learning signature detection to identify and read files even if their extensions are missing or incorrect.
+- **Scattered files:** Uploading 50 files manually can trigger UI limits. AI DocPrep merges everything into a single structured master document with a generated Table of Contents, making context ingestion a one-click action.
+
 ## Installation
 
 ### Windows
