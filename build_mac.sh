@@ -29,7 +29,7 @@ if [ -f icon.icns ]; then
     ICON_ARG="--icon icon.icns"
 fi
 
-pyinstaller -y --windowed --name AIDocPrep $ICON_ARG --add-data "/opt/homebrew/opt/tcl-tk@8/lib/tcl8.6:tcl8.6" --add-data "/opt/homebrew/opt/tcl-tk@8/lib/tk8.6:tk8.6" --exclude-module speech_recognition --exclude-module pocketsphinx --exclude-module pydub --exclude-module matplotlib --exclude-module scipy --exclude-module IPython --exclude-module tkinter.test --exclude-module unittest --exclude-module pydoc --collect-all customtkinter --collect-all tkinterdnd2 --collect-all magika app.py
+pyinstaller -y --windowed --name AIDocPrep $ICON_ARG --add-data "/opt/homebrew/opt/tcl-tk@8/lib/tcl8.6:tcl8.6" --add-data "/opt/homebrew/opt/tcl-tk@8/lib/tk8.6:tk8.6" --exclude-module speech_recognition --exclude-module pocketsphinx --exclude-module pydub --exclude-module matplotlib --exclude-module scipy --exclude-module IPython --exclude-module tkinter.test --exclude-module unittest --exclude-module pydoc --collect-all customtkinter --collect-all tkinterdnd2 --collect-all magika --collect-all spacy --collect-all en_core_web_sm app.py
 
 echo "Copying LICENSE..."
 cp LICENSE dist/AIDocPrep.app/Contents/Resources/LICENSE
