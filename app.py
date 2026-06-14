@@ -35,6 +35,8 @@ class App(ctk.CTk):
         self.toc_var = ctk.BooleanVar(value=True)
         self.only_combined_var = ctk.BooleanVar(value=True)
         self.redact_var = ctk.BooleanVar(value=False)
+        self.redact_mode_var = ctk.StringVar(value="Regex Only")
+        self.ollama_model_var = ctk.StringVar(value="llama3")
         self.cancel_flag = False
         
         # Extension toggles
@@ -193,7 +195,7 @@ class App(ctk.CTk):
     def open_settings(self):
         settings_win = ctk.CTkToplevel(self)
         settings_win.title("Settings")
-        settings_win.geometry("400x480")
+        settings_win.geometry("420x600")
         settings_win.attributes("-topmost", True)
         
         ctk.CTkLabel(settings_win, text="General Options:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(15, 5), anchor="w")
@@ -207,8 +209,51 @@ class App(ctk.CTk):
         chk_toc = ctk.CTkCheckBox(settings_win, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
         chk_toc.pack(padx=20, pady=(5, 5), anchor="w")
         
-        chk_redact = ctk.CTkCheckBox(settings_win, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var)
-        chk_redact.pack(padx=20, pady=(5, 10), anchor="w")
+        # Privacy Frame / Section
+        privacy_frame = ctk.CTkFrame(settings_win, fg_color="transparent")
+        privacy_frame.pack(padx=20, pady=(5, 5), fill="x", anchor="w")
+        
+        chk_redact = ctk.CTkCheckBox(privacy_frame, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var, command=lambda: toggle_redact_widgets())
+        chk_redact.pack(anchor="w")
+        
+        engine_frame = ctk.CTkFrame(settings_win, fg_color="transparent")
+        engine_frame.pack(padx=40, pady=(2, 2), fill="x", anchor="w")
+        
+        engine_label = ctk.CTkLabel(engine_frame, text="Engine:", font=ctk.CTkFont(size=11))
+        engine_label.pack(side="left", padx=(0, 10))
+        
+        engine_menu = ctk.CTkOptionMenu(
+            engine_frame, 
+            variable=self.redact_mode_var, 
+            values=["Regex Only", "Local NER (spaCy)", "Local LLM (Ollama)"],
+            command=lambda choice: on_engine_changed(choice),
+            width=150
+        )
+        engine_menu.pack(side="left")
+        
+        model_label = ctk.CTkLabel(settings_win, text="Ollama Model:", font=ctk.CTkFont(size=11))
+        model_menu = ctk.CTkOptionMenu(settings_win, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=150)
+        
+        def on_engine_changed(choice):
+            if choice == "Local LLM (Ollama)" and self.redact_var.get():
+                model_label.pack(padx=40, pady=(2, 0), anchor="w")
+                model_menu.pack(padx=40, pady=(2, 5), anchor="w")
+                self.refresh_ollama_models(model_menu)
+            else:
+                model_label.pack_forget()
+                model_menu.pack_forget()
+                
+        def toggle_redact_widgets():
+            if self.redact_var.get():
+                engine_menu.configure(state="normal")
+                on_engine_changed(self.redact_mode_var.get())
+            else:
+                engine_menu.configure(state="disabled")
+                model_label.pack_forget()
+                model_menu.pack_forget()
+
+        # Initialize widget states
+        toggle_redact_widgets()
         
         ctk.CTkLabel(settings_win, text="If Markdown file already exists:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
         
@@ -231,6 +276,27 @@ class App(ctk.CTk):
         ctk.CTkCheckBox(ext_frame2, text=".xlsx", variable=self.ext_xlsx_var).pack(side="left", padx=(0, 10), pady=5)
         ctk.CTkCheckBox(ext_frame2, text=".vtt", variable=self.ext_vtt_var).pack(side="left", padx=10, pady=5)
         ctk.CTkCheckBox(ext_frame2, text=".html", variable=self.ext_html_var).pack(side="left", padx=10, pady=5)
+
+    def refresh_ollama_models(self, menu_widget):
+        def fetch():
+            import urllib.request
+            import json
+            try:
+                req = urllib.request.Request("http://localhost:11434/api/tags")
+                with urllib.request.urlopen(req, timeout=1.0) as response:
+                    data = json.loads(response.read().decode())
+                    models = [model["name"] for model in data.get("models", [])]
+            except:
+                models = []
+            
+            if models:
+                self.after(0, lambda: menu_widget.configure(values=models))
+                if self.ollama_model_var.get() not in models:
+                    self.after(0, lambda: self.ollama_model_var.set(models[0]))
+            else:
+                self.after(0, lambda: menu_widget.configure(values=["llama3", "llama3.2", "mistral", "phi3"]))
+                
+        threading.Thread(target=fetch, daemon=True).start()
 
     def on_combine_changed(self):
         if self.combine_var.get():
@@ -343,7 +409,14 @@ class App(ctk.CTk):
             
             if os.path.isfile(path):
                 self.log(f"Converting single file: {path}...")
-                out = convert_file(path, overwrite=overwrite_setting, inject_yaml=self.yaml_var.get(), redact_pii=self.redact_var.get())
+                out = convert_file(
+                    path, 
+                    overwrite=overwrite_setting, 
+                    inject_yaml=self.yaml_var.get(), 
+                    redact_pii=self.redact_var.get(),
+                    redact_mode=self.redact_mode_var.get(),
+                    ollama_model=self.ollama_model_var.get()
+                )
                 self.update_progress(1, 1)
                 self.log(f"Success! Output: {out}")
                 self.handle_completion(os.path.dirname(out), cancelled=self.cancel_flag)
@@ -362,7 +435,9 @@ class App(ctk.CTk):
                     cancel_check=is_cancelled, 
                     overwrite=overwrite_setting,
                     inject_yaml=self.yaml_var.get(),
-                    redact_pii=self.redact_var.get()
+                    redact_pii=self.redact_var.get(),
+                    redact_mode=self.redact_mode_var.get(),
+                    ollama_model=self.ollama_model_var.get()
                 )
                 
                 if self.cancel_flag:

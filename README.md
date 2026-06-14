@@ -18,6 +18,14 @@ By converting to Markdown first:
 - **Consolidate Sources:** Merge an entire folder of files into a single `combined.md` file with a table of contents.
 - **Privacy:** Scrub PII (SSNs, credit cards, emails, phone numbers) locally on your machine before uploading anything to a cloud provider.
 
+## Perfect for Obsidian & PKM Vaults
+
+If you use **Obsidian**, **Notion**, **Logseq**, or other Markdown-based knowledge bases, AI DocPrep fits seamlessly into your note-taking workflow:
+- **Searchable Office Files:** Convert unsearchable PDFs, Word docs, PowerPoint presentations, or Excel spreadsheets into native Markdown notes that can be fully indexed, linked, and searched.
+- **YAML Frontmatter & Properties:** Automatically embeds conversion date, source format, and original file paths as YAML properties. Obsidian natively reads these, making it easy to filter and query your documents.
+- **Folder Merging:** Combine research directories of multiple files into a single master note with a clickable, generated Table of Contents.
+- **Supercharge Vault AI:** Clean Markdown structure (headers, lists, tables) significantly improves the indexing accuracy of vault chat plugins (like *Smart Connections* or *Obsidian Copilot*).
+
 ## Features
 
 - **Drag & Drop UI:** Drop files or entire folders into the window to start converting.
@@ -53,17 +61,17 @@ While code editors and chat clients can index or parse local files, they have ma
 
 ## Installation
 
-### Windows
-1. Download `AIDocPrep_Setup.exe` from the [Releases page](https://github.com/amitxm/AIDocPrep/releases).
-2. Run the installer. It will add "Convert to Markdown" to your Windows explorer context menu.
+### 🚀 Download Pre-Compiled Installer (Recommended)
+You can download the ready-to-run Windows Installer (`.exe`) or macOS App bundle (`.app`) directly from Gumroad (Pay-What-You-Want):
 
-### macOS
-1. Download `AIDocPrep.app` from the [Releases page](https://github.com/amitxm/AIDocPrep/releases).
-2. Move it to your Applications folder.
+👉 **[Download AI DocPrep on Gumroad](https://belsonbox.gumroad.com/l/aidocprep)** *(No Gumroad account required—just enter your email for the download link)*
 
-## Building from Source
+*Downloading the installer here supports the developer and funds future OS code-signing certificates to remove installation warning screens!*
 
-### Prerequisites
+### Building from Source (Free)
+If you prefer to compile the application yourself, you can build it from source:
+
+#### Prerequisites
 - Python 3.11+
 
 ### Setup

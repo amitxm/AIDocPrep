@@ -2,3 +2,4 @@ markitdown[all]
 customtkinter
 tkinterdnd2
 PyInstaller
+spacy
