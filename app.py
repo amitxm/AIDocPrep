@@ -216,6 +216,12 @@ class App(ctk.CTk):
         chk_redact = ctk.CTkCheckBox(privacy_frame, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var, command=lambda: toggle_redact_widgets())
         chk_redact.pack(anchor="w")
         
+        help_texts = {
+            "Regex Only": "Fastest. Scrubs standard structured identifiers (credentials, secrets, emails, SSNs, credit cards, private keys, IPs).",
+            "Local NER (spaCy)": "Adds AI Named Entity Recognition. Offline model scrubs names (PERSON), companies (ORG), and locations (GPE).",
+            "Local LLM (Ollama)": "Uses your local running Ollama models (e.g. llama3) to dynamically redact context-based sensitive names and items."
+        }
+
         engine_frame = ctk.CTkFrame(settings_win, fg_color="transparent")
         engine_frame.pack(padx=40, pady=(2, 2), fill="x", anchor="w")
         
@@ -231,15 +237,49 @@ class App(ctk.CTk):
         )
         engine_menu.pack(side="left")
         
+        info_icon = ctk.CTkLabel(engine_frame, text="ℹ️", font=ctk.CTkFont(size=13, weight="bold"), text_color="gray", cursor="hand2")
+        info_icon.pack(side="left", padx=(8, 0))
+        
+        def show_engine_info(event=None):
+            from tkinter import messagebox
+            info_text = (
+                "Privacy Engines Explained:\n\n"
+                "• Regex Only (Default):\n"
+                "  Fastest. Scrubs standard structured patterns (emails, SSNs, CCs, passwords, private keys, APIs, IPs).\n\n"
+                "• Local NER (spaCy):\n"
+                "  Adds on-device AI Named Entity Recognition. Scrubs names of people (PERSON), organizations (ORG), and locations/addresses (GPE).\n\n"
+                "• Local LLM (Ollama):\n"
+                "  Runs local model queries on your running Ollama server. Dynamically redacts complex context-sensitive data."
+            )
+            messagebox.showinfo("Privacy Engine Info", info_text)
+            
+        info_icon.bind("<Button-1>", show_engine_info)
+
+        engine_help_label = ctk.CTkLabel(
+            settings_win, 
+            text="", 
+            font=ctk.CTkFont(size=10, slant="italic"), 
+            text_color="gray50",
+            wraplength=340,
+            justify="left"
+        )
+        engine_help_label.pack(padx=40, pady=(1, 5), anchor="w")
+        
         model_label = ctk.CTkLabel(settings_win, text="Ollama Model:", font=ctk.CTkFont(size=11))
         model_menu = ctk.CTkOptionMenu(settings_win, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=150)
         
         def on_engine_changed(choice):
-            if choice == "Local LLM (Ollama)" and self.redact_var.get():
-                model_label.pack(padx=40, pady=(2, 0), anchor="w")
-                model_menu.pack(padx=40, pady=(2, 5), anchor="w")
-                self.refresh_ollama_models(model_menu)
+            if self.redact_var.get():
+                engine_help_label.configure(text=help_texts.get(choice, ""))
+                if choice == "Local LLM (Ollama)":
+                    model_label.pack(padx=40, pady=(2, 0), anchor="w")
+                    model_menu.pack(padx=40, pady=(2, 5), anchor="w")
+                    self.refresh_ollama_models(model_menu)
+                else:
+                    model_label.pack_forget()
+                    model_menu.pack_forget()
             else:
+                engine_help_label.configure(text="")
                 model_label.pack_forget()
                 model_menu.pack_forget()
                 
@@ -249,6 +289,7 @@ class App(ctk.CTk):
                 on_engine_changed(self.redact_mode_var.get())
             else:
                 engine_menu.configure(state="disabled")
+                engine_help_label.configure(text="")
                 model_label.pack_forget()
                 model_menu.pack_forget()
 
