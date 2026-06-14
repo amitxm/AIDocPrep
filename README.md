@@ -91,10 +91,12 @@ curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/download/v
 
 ---
 
-### 💖 Support the Project
-AI DocPrep is completely free and open-source. If this utility saves you time and context window tokens, you can support future development and help fund macOS/Windows code-signing certificates on Gumroad (Pay-What-You-Want):
+### 💖 Support the Project (Mac App Store & Signing)
+AI DocPrep is completely free and open-source. If this utility saves you time and context window tokens, you can support the project on Gumroad:
 
-👉 **[Support on Gumroad](https://belsonbox.gumroad.com/l/aidocprep)**
+👉 **[Support on Gumroad (Pay-What-You-Want)](https://belsonbox.gumroad.com/l/aidocprep)**
+
+*All donations directly fund the **$99/year Apple Developer membership**. Our goal is to officially code-sign the app, eliminate macOS security warnings entirely, and publish AI DocPrep directly on the **Mac App Store**!*
 
 ---
 
