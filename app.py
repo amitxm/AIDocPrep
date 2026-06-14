@@ -47,15 +47,11 @@ class App(ctk.CTk):
         self.custom_terms = ""
         self.cancel_flag = False
         
-        # Extension toggles
-        self.ext_docx_var = ctk.BooleanVar(value=True)
-        self.ext_pdf_var = ctk.BooleanVar(value=True)
-        self.ext_pptx_var = ctk.BooleanVar(value=True)
-        self.ext_xlsx_var = ctk.BooleanVar(value=True)
-        self.ext_vtt_var = ctk.BooleanVar(value=True)
-        self.ext_html_var = ctk.BooleanVar(value=True)
-        
+        # Browse / Ingestion settings
+        self.browse_mode_var = ctk.StringVar(value="File Mode")
+        self.selected_path = None
         self.combine_var = ctk.BooleanVar(value=True)
+        self.is_converting = False
 
         # Main layout
         self.grid_columnconfigure(0, weight=1)
@@ -71,8 +67,13 @@ class App(ctk.CTk):
         if len(sys.argv) > 1:
             path = sys.argv[1]
             if os.path.exists(path):
-                self.path_entry.insert(0, path)
-                self.on_path_changed()
+                self.selected_path = path
+                if os.path.isdir(path):
+                    self.browse_mode_var.set("Folder Mode")
+                else:
+                    self.browse_mode_var.set("File Mode")
+                self.update_mode_visibility()
+                self.update_drop_zone_view()
                 self.run_conversion()
 
     def setup_menu(self):
@@ -135,38 +136,180 @@ class App(ctk.CTk):
         header_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
         header_frame.grid_columnconfigure(0, weight=1)
         
-        title_label = ctk.CTkLabel(header_frame, text="AI DocPrep", font=ctk.CTkFont(size=26, weight="bold"))
-        title_label.grid(row=0, column=0, sticky="w")
+        # Title and Version Info container
+        title_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_container.grid(row=0, column=0, sticky="w")
         
-        settings_btn = ctk.CTkButton(header_frame, text="Settings ⚙️", width=40, fg_color="transparent", border_width=1, text_color=("black", "white"), command=self.open_settings)
-        settings_btn.grid(row=0, column=1, sticky="e")
+        title_label = ctk.CTkLabel(title_container, text="AI DocPrep", font=ctk.CTkFont(size=24, weight="bold"))
+        title_label.pack(side="left")
+        
+        version_label = ctk.CTkLabel(title_container, text="v1.1.0", font=ctk.CTkFont(size=11), text_color="gray")
+        version_label.pack(side="left", padx=(10, 0), pady=(5, 0))
+        
+        # Status indicator container
+        self.status_indicator = ctk.CTkFrame(title_container, width=10, height=10, corner_radius=5, fg_color="#2ecc71") # Green dot initially
+        self.status_indicator.pack(side="left", padx=(15, 0), pady=(7, 0))
+        
+        self.status_label = ctk.CTkLabel(header_frame, text="System Ready", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray")
+        self.status_label.grid(row=1, column=0, sticky="w", pady=(2, 0))
+        
+        # Sleek settings button (circular style cog)
+        settings_btn = ctk.CTkButton(
+            header_frame, 
+            text="⚙️", 
+            width=32, 
+            height=32,
+            corner_radius=16,
+            fg_color=("gray90", "gray20"), 
+            hover_color=("gray80", "gray30"),
+            text_color=("black", "white"), 
+            font=ctk.CTkFont(size=16),
+            command=self.open_settings
+        )
+        settings_btn.grid(row=0, column=1, rowspan=2, sticky="e")
 
     def setup_main_card(self):
-        card1 = ctk.CTkFrame(self)
-        card1.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-        card1.grid_columnconfigure(0, weight=1)
+        self.main_card = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_card.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        self.main_card.grid_columnconfigure(0, weight=1)
         
-        ctk.CTkLabel(card1, text="What are we converting?", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=3, padx=15, pady=(15, 5), sticky="w")
+        # Segmented button for File / Folder Selection Mode
+        self.mode_selector = ctk.CTkSegmentedButton(
+            self.main_card, 
+            values=["File Mode", "Folder Mode"], 
+            variable=self.browse_mode_var,
+            command=self.on_mode_selector_changed
+        )
+        self.mode_selector.grid(row=0, column=0, pady=(0, 10), sticky="ew")
         
-        self.path_entry = ctk.CTkEntry(card1, placeholder_text="Drag & Drop file/folder here or Browse...")
-        self.path_entry.grid(row=1, column=0, padx=(15, 5), pady=(5, 10), sticky="ew")
+        # Large Drag & Drop Landing Zone Card
+        self.drop_zone = ctk.CTkFrame(self.main_card, height=130, corner_radius=12, border_width=1, border_color=("gray80", "gray20"))
+        self.drop_zone.grid(row=1, column=0, pady=5, sticky="ew")
+        self.drop_zone.grid_propagate(False) # Keep the height fixed
         
-        self.path_entry.bind("<KeyRelease>", lambda event: self.on_path_changed())
+        # Folder combining switches (only visible in folder mode)
+        self.combine_switch = ctk.CTkSwitch(
+            self.main_card, 
+            text="Combine folder output into single master file", 
+            variable=self.combine_var, 
+            command=self.on_combine_changed
+        )
+        self.combine_switch.grid(row=2, column=0, padx=15, pady=(8, 2), sticky="w")
         
-        self.browse_file_btn = ctk.CTkButton(card1, text="Browse File", width=100, command=self.browse_file)
-        self.browse_file_btn.grid(row=1, column=1, padx=(5, 5), pady=(5, 10))
+        self.delete_individuals_switch = ctk.CTkSwitch(
+            self.main_card, 
+            text="Only keep combined file (Delete individual files)", 
+            variable=self.only_combined_var
+        )
+        self.delete_individuals_switch.grid(row=3, column=0, padx=35, pady=(2, 10), sticky="w")
         
-        self.browse_folder_btn = ctk.CTkButton(card1, text="Browse Folder", width=100, command=self.browse_folder)
-        self.browse_folder_btn.grid(row=1, column=2, padx=(5, 15), pady=(5, 10))
+        # Register Drag and Drop on the drop zone
+        self.drop_zone.drop_target_register(DND_FILES)
+        self.drop_zone.dnd_bind('<<Drop>>', self.on_drop)
         
-        self.combine_switch = ctk.CTkSwitch(card1, text="Combine folder output into single master file", variable=self.combine_var, command=self.on_combine_changed)
-        self.combine_switch.grid(row=2, column=0, columnspan=3, padx=15, pady=(5, 2), sticky="w")
-        
-        self.delete_individuals_switch = ctk.CTkSwitch(card1, text="Only keep combined file (Delete individual files)", variable=self.only_combined_var)
-        self.delete_individuals_switch.grid(row=3, column=0, columnspan=3, padx=35, pady=(2, 15), sticky="w")
-        
-        self.path_entry.drop_target_register(DND_FILES)
-        self.path_entry.dnd_bind('<<Drop>>', self.on_drop)
+        # Initial views
+        self.update_drop_zone_view()
+        self.update_mode_visibility()
+
+    def on_mode_selector_changed(self, value):
+        self.selected_path = None # Reset selection on toggle
+        self.update_mode_visibility()
+        self.update_drop_zone_view()
+
+    def update_mode_visibility(self):
+        if self.browse_mode_var.get() == "Folder Mode":
+            self.combine_switch.grid()
+            if self.combine_var.get():
+                self.delete_individuals_switch.grid()
+            else:
+                self.delete_individuals_switch.grid_remove()
+        else:
+            self.combine_switch.grid_remove()
+            self.delete_individuals_switch.grid_remove()
+
+    def update_drop_zone_view(self):
+        # Clear existing widgets inside the drop zone
+        for widget in self.drop_zone.winfo_children():
+            widget.destroy()
+            
+        if not self.selected_path:
+            # Show empty / landing state
+            self.drop_zone.configure(fg_color=("gray95", "gray13"), border_width=1, border_color=("gray80", "gray20"))
+            
+            icon_label = ctk.CTkLabel(self.drop_zone, text="📥", font=ctk.CTkFont(size=36))
+            icon_label.pack(pady=(20, 2))
+            
+            mode_text = "File" if self.browse_mode_var.get() == "File Mode" else "Folder"
+            primary_label = ctk.CTkLabel(self.drop_zone, text=f"Drag & Drop a {mode_text} Here", font=ctk.CTkFont(weight="bold", size=13))
+            primary_label.pack(pady=1)
+            
+            secondary_label = ctk.CTkLabel(self.drop_zone, text="or click anywhere to browse...", font=ctk.CTkFont(size=10), text_color="gray")
+            secondary_label.pack(pady=(0, 20))
+            
+            # Bind click event
+            for widget in [self.drop_zone, icon_label, primary_label, secondary_label]:
+                widget.bind("<Button-1>", self.on_drop_zone_click)
+        else:
+            # Show loaded file card state
+            self.drop_zone.configure(fg_color=("gray90", "gray18"), border_width=1, border_color=("gray70", "gray30"))
+            
+            # Top row for clear button
+            clear_frame = ctk.CTkFrame(self.drop_zone, fg_color="transparent")
+            clear_frame.pack(fill="x", padx=10, pady=(5, 0))
+            
+            clear_btn = ctk.CTkButton(
+                clear_frame, 
+                text="✕", 
+                width=16, 
+                height=16, 
+                corner_radius=8,
+                fg_color="transparent", 
+                hover_color=("gray75", "gray25"),
+                text_color="gray", 
+                font=ctk.CTkFont(size=9, weight="bold"),
+                command=self.clear_selection
+            )
+            clear_btn.pack(side="right")
+            
+            # Icon and text info
+            card_content = ctk.CTkFrame(self.drop_zone, fg_color="transparent")
+            card_content.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+            
+            is_dir = os.path.isdir(self.selected_path)
+            card_icon = "📁" if is_dir else "📄"
+            
+            icon_label = ctk.CTkLabel(card_content, text=card_icon, font=ctk.CTkFont(size=32))
+            icon_label.pack(side="left", padx=(0, 12))
+            
+            text_frame = ctk.CTkFrame(card_content, fg_color="transparent")
+            text_frame.pack(side="left", fill="both", expand=True)
+            
+            name_label = ctk.CTkLabel(text_frame, text=os.path.basename(self.selected_path), font=ctk.CTkFont(weight="bold", size=12), anchor="w")
+            name_label.pack(fill="x", pady=(2, 0))
+            
+            # Truncate long paths to fit the layout nicely
+            display_path = self.selected_path
+            if len(display_path) > 50:
+                display_path = display_path[:20] + "..." + display_path[-30:]
+                
+            path_label = ctk.CTkLabel(text_frame, text=display_path, font=ctk.CTkFont(size=10), text_color="gray", anchor="w")
+            path_label.pack(fill="x")
+
+    def on_drop_zone_click(self, event=None):
+        if getattr(self, "is_converting", False): return
+        if self.browse_mode_var.get() == "File Mode":
+            path = filedialog.askopenfilename()
+        else:
+            path = filedialog.askdirectory()
+            
+        if path:
+            self.selected_path = path
+            self.update_drop_zone_view()
+
+    def clear_selection(self):
+        if getattr(self, "is_converting", False): return
+        self.selected_path = None
+        self.update_drop_zone_view()
 
     def setup_action_button(self):
         action_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -203,41 +346,68 @@ class App(ctk.CTk):
     def open_settings(self):
         settings_win = ctk.CTkToplevel(self)
         settings_win.title("Settings")
-        settings_win.geometry("460x650")
+        settings_win.geometry("500x680")
         settings_win.attributes("-topmost", True)
         
-        # Create Scrollable Frame to hold all settings
-        scroll_frame = ctk.CTkScrollableFrame(settings_win, fg_color="transparent")
-        scroll_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        # Center settings window relative to parent
+        settings_win.update_idletasks()
+        parent_x = self.winfo_x()
+        parent_y = self.winfo_y()
+        parent_w = self.winfo_width()
+        parent_h = self.winfo_height()
+        x = parent_x + (parent_w - 500) // 2
+        y = parent_y + (parent_h - 680) // 2
+        settings_win.geometry(f"500x680+{x}+{y}")
         
-        ctk.CTkLabel(scroll_frame, text="General Options:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
+        # Create Tabview
+        tabview = ctk.CTkTabview(settings_win)
+        tabview.pack(fill="both", expand=True, padx=15, pady=(10, 15))
         
-        chk_open = ctk.CTkCheckBox(scroll_frame, text="Open Folder on Completion", variable=self.open_folder_var)
-        chk_open.pack(padx=20, pady=(5, 5), anchor="w")
+        tab_output = tabview.add("Output Options")
+        tab_privacy = tabview.add("Privacy & PII")
         
-        chk_yaml = ctk.CTkCheckBox(scroll_frame, text="Inject YAML Frontmatter", variable=self.yaml_var)
-        chk_yaml.pack(padx=20, pady=(5, 5), anchor="w")
+        # --- OUTPUT OPTIONS TAB ---
+        scroll_output = ctk.CTkScrollableFrame(tab_output, fg_color="transparent")
+        scroll_output.pack(fill="both", expand=True, padx=5, pady=5)
         
-        chk_toc = ctk.CTkCheckBox(scroll_frame, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
-        chk_toc.pack(padx=20, pady=(5, 5), anchor="w")
+        # Section Header: General
+        ctk.CTkLabel(scroll_output, text="General Options", font=ctk.CTkFont(weight="bold", size=14)).pack(padx=10, pady=(10, 8), anchor="w")
         
-        # Privacy Frame / Section
-        privacy_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        privacy_frame.pack(padx=20, pady=(5, 5), fill="x", anchor="w")
+        chk_open = ctk.CTkCheckBox(scroll_output, text="Open Folder on Completion", variable=self.open_folder_var)
+        chk_open.pack(padx=20, pady=6, anchor="w")
         
-        chk_redact = ctk.CTkCheckBox(privacy_frame, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var, command=lambda: toggle_redact_widgets())
-        chk_redact.pack(anchor="w")
+        # Section Header: Formatting
+        ctk.CTkLabel(scroll_output, text="Markdown Formatting", font=ctk.CTkFont(weight="bold", size=14)).pack(padx=10, pady=(18, 8), anchor="w")
         
-        help_texts = {
-            "Regex Only": "Fastest. Scrubs standard structured identifiers (credentials, secrets, emails, SSNs, credit cards, private keys, IPs).",
-            "Local NER (spaCy)": "Adds AI Named Entity Recognition. Offline model scrubs names (PERSON), companies (ORG), and locations (GPE).",
-            "Local LLM (Ollama)": "Uses your local running Ollama models (e.g. llama3) to dynamically redact context-based sensitive names and items."
-        }
-
-        engine_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        engine_frame.pack(padx=40, pady=(2, 2), fill="x", anchor="w")
+        chk_yaml = ctk.CTkCheckBox(scroll_output, text="Inject YAML Frontmatter", variable=self.yaml_var)
+        chk_yaml.pack(padx=20, pady=6, anchor="w")
         
-        engine_label = ctk.CTkLabel(engine_frame, text="Engine:", font=ctk.CTkFont(size=11))
+        chk_toc = ctk.CTkCheckBox(scroll_output, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
+        chk_toc.pack(padx=20, pady=6, anchor="w")
+        
+        # Section Header: Conflict Resolution
+        ctk.CTkLabel(scroll_output, text="File Conflict Resolution", font=ctk.CTkFont(weight="bold", size=14)).pack(padx=10, pady=(18, 8), anchor="w")
+        
+        rb_overwrite = ctk.CTkRadioButton(scroll_output, text="Overwrite existing file", variable=self.overwrite_var, value="overwrite")
+        rb_overwrite.pack(padx=20, pady=6, anchor="w")
+        
+        rb_copy = ctk.CTkRadioButton(scroll_output, text="Create a copy (e.g., file (1).md)", variable=self.overwrite_var, value="copy")
+        rb_copy.pack(padx=20, pady=6, anchor="w")
+        
+        # --- PRIVACY & PII TAB ---
+        scroll_privacy = ctk.CTkScrollableFrame(tab_privacy, fg_color="transparent")
+        scroll_privacy.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        ctk.CTkLabel(scroll_privacy, text="PII Redaction Options", font=ctk.CTkFont(weight="bold", size=14)).pack(padx=10, pady=(10, 8), anchor="w")
+        
+        # Privacy Mode Checkbox
+        chk_redact = ctk.CTkCheckBox(scroll_privacy, text="Enable Privacy Mode (Auto-Redact PII)", variable=self.redact_var, command=lambda: toggle_redact_widgets())
+        chk_redact.pack(padx=20, pady=6, anchor="w")
+        
+        # Engine selection frame
+        engine_frame = ctk.CTkFrame(scroll_privacy, fg_color="transparent")
+        
+        engine_label = ctk.CTkLabel(engine_frame, text="Engine:", font=ctk.CTkFont(size=12))
         engine_label.pack(side="left", padx=(0, 10))
         
         engine_menu = ctk.CTkOptionMenu(
@@ -245,11 +415,11 @@ class App(ctk.CTk):
             variable=self.redact_mode_var, 
             values=["Regex Only", "Local NER (spaCy)", "Local LLM (Ollama)"],
             command=lambda choice: on_engine_changed(choice),
-            width=150
+            width=170
         )
         engine_menu.pack(side="left")
         
-        info_icon = ctk.CTkLabel(engine_frame, text="ℹ️", font=ctk.CTkFont(size=13, weight="bold"), text_color="gray", cursor="hand2")
+        info_icon = ctk.CTkLabel(engine_frame, text="ℹ️", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray", cursor="hand2")
         info_icon.pack(side="left", padx=(8, 0))
         
         def show_engine_info(event=None):
@@ -266,52 +436,60 @@ class App(ctk.CTk):
             messagebox.showinfo("Privacy Engine Info", info_text)
             
         info_icon.bind("<Button-1>", show_engine_info)
-
+        
+        # Engine description/helper label
         engine_help_label = ctk.CTkLabel(
-            scroll_frame, 
+            scroll_privacy, 
             text="", 
-            font=ctk.CTkFont(size=10, slant="italic"), 
+            font=ctk.CTkFont(size=11, slant="italic"), 
             text_color="gray50",
-            wraplength=340,
+            wraplength=380,
             justify="left"
         )
-        engine_help_label.pack(padx=40, pady=(1, 5), anchor="w")
         
-        model_label = ctk.CTkLabel(scroll_frame, text="Ollama Model:", font=ctk.CTkFont(size=11))
-        model_menu = ctk.CTkOptionMenu(scroll_frame, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=150)
+        # Model Selection for Ollama
+        model_label = ctk.CTkLabel(scroll_privacy, text="Ollama Model:", font=ctk.CTkFont(size=12))
+        model_menu = ctk.CTkOptionMenu(scroll_privacy, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=170)
         
         # Custom Ollama Prompt Box
-        prompt_label = ctk.CTkLabel(scroll_frame, text="Custom Ollama Prompt:", font=ctk.CTkFont(size=11, weight="bold"))
-        prompt_textbox = ctk.CTkTextbox(scroll_frame, height=120, width=350, font=ctk.CTkFont(size=11))
+        prompt_label = ctk.CTkLabel(scroll_privacy, text="Custom Ollama Prompt:", font=ctk.CTkFont(size=12, weight="bold"))
+        prompt_textbox = ctk.CTkTextbox(scroll_privacy, height=130, width=400, font=ctk.CTkFont(size=11))
         prompt_textbox.insert("1.0", self.custom_prompt)
         
         # Custom Terms Box
-        terms_label = ctk.CTkLabel(scroll_frame, text="Custom Terms to Redact (one per line):", font=ctk.CTkFont(size=11, weight="bold"))
-        terms_textbox = ctk.CTkTextbox(scroll_frame, height=80, width=350, font=ctk.CTkFont(size=11))
+        terms_label = ctk.CTkLabel(scroll_privacy, text="Custom Terms to Redact (one per line):", font=ctk.CTkFont(size=12, weight="bold"))
+        terms_textbox = ctk.CTkTextbox(scroll_privacy, height=90, width=400, font=ctk.CTkFont(size=11))
         terms_textbox.insert("1.0", self.custom_terms)
+        
+        help_texts = {
+            "Regex Only": "Fastest. Scrubs standard structured identifiers (credentials, secrets, emails, SSNs, credit cards, private keys, IPs).",
+            "Local NER (spaCy)": "Adds AI Named Entity Recognition. Offline model scrubs names (PERSON), companies (ORG), and locations (GPE).",
+            "Local LLM (Ollama)": "Uses your local running Ollama models (e.g. llama3) to dynamically redact context-based sensitive names and items."
+        }
         
         def on_engine_changed(choice):
             if self.redact_var.get():
                 engine_help_label.configure(text=help_texts.get(choice, ""))
+                engine_help_label.pack(padx=30, pady=(2, 8), anchor="w")
                 
                 # Custom Terms is always visible under Privacy Mode
-                terms_label.pack(padx=40, pady=(5, 0), anchor="w")
-                terms_textbox.pack(padx=40, pady=(2, 5), anchor="w")
+                terms_label.pack(padx=30, pady=(8, 0), anchor="w")
+                terms_textbox.pack(padx=30, pady=(2, 8), anchor="w")
                 
                 if choice == "Local LLM (Ollama)":
-                    model_label.pack(padx=40, pady=(2, 0), anchor="w")
-                    model_menu.pack(padx=40, pady=(2, 5), anchor="w")
+                    model_label.pack(padx=30, pady=(8, 0), anchor="w")
+                    model_menu.pack(padx=30, pady=(2, 8), anchor="w")
                     self.refresh_ollama_models(model_menu)
                     
-                    prompt_label.pack(padx=40, pady=(5, 0), anchor="w")
-                    prompt_textbox.pack(padx=40, pady=(2, 5), anchor="w")
+                    prompt_label.pack(padx=30, pady=(8, 0), anchor="w")
+                    prompt_textbox.pack(padx=30, pady=(2, 8), anchor="w")
                 else:
                     model_label.pack_forget()
                     model_menu.pack_forget()
                     prompt_label.pack_forget()
                     prompt_textbox.pack_forget()
             else:
-                engine_help_label.configure(text="")
+                engine_help_label.pack_forget()
                 model_label.pack_forget()
                 model_menu.pack_forget()
                 prompt_label.pack_forget()
@@ -321,44 +499,23 @@ class App(ctk.CTk):
                 
         def toggle_redact_widgets():
             if self.redact_var.get():
+                engine_frame.pack(padx=30, pady=(4, 4), fill="x", anchor="w")
                 engine_menu.configure(state="normal")
                 on_engine_changed(self.redact_mode_var.get())
             else:
+                engine_frame.pack_forget()
                 engine_menu.configure(state="disabled")
-                engine_help_label.configure(text="")
+                engine_help_label.pack_forget()
                 model_label.pack_forget()
                 model_menu.pack_forget()
                 prompt_label.pack_forget()
                 prompt_textbox.pack_forget()
                 terms_label.pack_forget()
                 terms_textbox.pack_forget()
-
+                
         # Initialize widget states
         toggle_redact_widgets()
         
-        ctk.CTkLabel(scroll_frame, text="If Markdown file already exists:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
-        
-        rb_overwrite = ctk.CTkRadioButton(scroll_frame, text="Overwrite existing file", variable=self.overwrite_var, value="overwrite")
-        rb_overwrite.pack(padx=30, pady=5, anchor="w")
-        
-        rb_copy = ctk.CTkRadioButton(scroll_frame, text="Create a copy (e.g., file (1).md)", variable=self.overwrite_var, value="copy")
-        rb_copy.pack(padx=30, pady=(5, 10), anchor="w")
-        
-        ctk.CTkLabel(scroll_frame, text="File Types to Convert (Folder Mode):", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
-        
-        ext_frame1 = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        ext_frame1.pack(padx=20, fill="x", anchor="w")
-        ctk.CTkCheckBox(ext_frame1, text=".docx", variable=self.ext_docx_var).pack(side="left", padx=(0, 10), pady=5)
-        ctk.CTkCheckBox(ext_frame1, text=".pdf", variable=self.ext_pdf_var).pack(side="left", padx=10, pady=5)
-        chk_pptx = ctk.CTkCheckBox(ext_frame1, text=".pptx", variable=self.ext_pptx_var)
-        chk_pptx.pack(side="left", padx=10, pady=5)
-        
-        ext_frame2 = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        ext_frame2.pack(padx=20, fill="x", anchor="w")
-        ctk.CTkCheckBox(ext_frame2, text=".xlsx", variable=self.ext_xlsx_var).pack(side="left", padx=(0, 10), pady=5)
-        ctk.CTkCheckBox(ext_frame2, text=".vtt", variable=self.ext_vtt_var).pack(side="left", padx=10, pady=5)
-        ctk.CTkCheckBox(ext_frame2, text=".html", variable=self.ext_html_var).pack(side="left", padx=10, pady=5)
-
         # Handle save when window is closed
         def on_close():
             self.custom_prompt = prompt_textbox.get("1.0", "end-1c")
@@ -398,26 +555,36 @@ class App(ctk.CTk):
         pass
 
     def on_drop(self, event):
+        if getattr(self, "is_converting", False): return
         path = event.data
         if path.startswith('{') and path.endswith('}'):
             path = path[1:-1]
-        self.path_entry.delete(0, ctk.END)
-        self.path_entry.insert(0, path)
-        self.on_path_changed()
+        if os.path.exists(path):
+            self.selected_path = path
+            if os.path.isdir(path):
+                self.browse_mode_var.set("Folder Mode")
+            else:
+                self.browse_mode_var.set("File Mode")
+            self.update_mode_visibility()
+            self.update_drop_zone_view()
         
     def browse_file(self):
+        if getattr(self, "is_converting", False): return
         path = filedialog.askopenfilename()
         if path:
-            self.path_entry.delete(0, ctk.END)
-            self.path_entry.insert(0, path)
-            self.on_path_changed()
+            self.selected_path = path
+            self.browse_mode_var.set("File Mode")
+            self.update_mode_visibility()
+            self.update_drop_zone_view()
 
     def browse_folder(self):
+        if getattr(self, "is_converting", False): return
         path = filedialog.askdirectory()
         if path:
-            self.path_entry.delete(0, ctk.END)
-            self.path_entry.insert(0, path)
-            self.on_path_changed()
+            self.selected_path = path
+            self.browse_mode_var.set("Folder Mode")
+            self.update_mode_visibility()
+            self.update_drop_zone_view()
 
     def log(self, message):
         def _update_log():
@@ -429,25 +596,18 @@ class App(ctk.CTk):
             self.log_console.configure(state="disabled")
         self.after(0, _update_log)
 
-    def get_selected_extensions(self):
-        exts = []
-        if self.ext_docx_var.get(): exts.append(".docx")
-        if self.ext_pdf_var.get(): exts.append(".pdf")
-        if self.ext_pptx_var.get(): exts.append(".pptx")
-        if self.ext_xlsx_var.get(): exts.append(".xlsx")
-        if self.ext_vtt_var.get(): exts.append(".vtt")
-        if self.ext_html_var.get(): exts.extend([".html", ".htm"])
-        return exts
 
     def run_async(self, func, *args):
         self.cancel_flag = False
+        self.is_converting = True
         self.run_btn.grid_remove()
         self.stop_btn.grid()
         self.stop_btn.configure(state="normal", text="Stop")
         
-        self.browse_file_btn.configure(state="disabled")
-        self.browse_folder_btn.configure(state="disabled")
-        self.path_entry.configure(state="disabled")
+        self.status_indicator.configure(fg_color="#3498db") # Blue
+        self.status_label.configure(text="Processing documents...")
+        
+        self.mode_selector.configure(state="disabled")
         self.combine_switch.configure(state="disabled")
         
         self.progress_bar.grid() 
@@ -461,6 +621,7 @@ class App(ctk.CTk):
         self.cancel_flag = True
         self.log("Stopping process... (waiting for current files to finish)")
         self.stop_btn.configure(state="disabled", text="Stopping...")
+        self.status_label.configure(text="Stopping process...")
         
     def update_progress(self, current, total):
         def _update():
@@ -471,17 +632,20 @@ class App(ctk.CTk):
     def handle_completion(self, folder_path, cancelled=False):
         if cancelled:
             self.log("Process cancelled.")
+            self.status_indicator.configure(fg_color="#e74c3c") # Red
+            self.status_label.configure(text="Process Stopped")
         else:
             self.log("Process complete.")
+            self.status_indicator.configure(fg_color="#2ecc71") # Green
+            self.status_label.configure(text="System Ready")
             
         def _reset_ui():
+            self.is_converting = False
             self.stop_btn.grid_remove()
             self.run_btn.grid()
             self.progress_bar.grid_remove() 
-            self.browse_file_btn.configure(state="normal")
-            self.browse_folder_btn.configure(state="normal")
-            self.path_entry.configure(state="normal")
-            self.on_path_changed() # Re-evaluate if switch should be enabled
+            self.mode_selector.configure(state="normal")
+            self.combine_switch.configure(state="normal")
             
         self.after(0, _reset_ui)
         
@@ -514,15 +678,14 @@ class App(ctk.CTk):
                 self.handle_completion(os.path.dirname(out), cancelled=self.cancel_flag)
                 
             elif os.path.isdir(path):
-                exts = self.get_selected_extensions()
-                self.log(f"Converting folder: {path} for extensions: {exts}...")
+                self.log(f"Converting folder: {path} (all eligible office & text formats)...")
                 
                 def is_cancelled():
                     return self.cancel_flag
                     
                 converted = convert_folder(
                     path, 
-                    exts, 
+                    extensions=None, 
                     progress_callback=self.update_progress, 
                     cancel_check=is_cancelled, 
                     overwrite=overwrite_setting,
@@ -574,18 +737,19 @@ class App(ctk.CTk):
                 self.handle_completion(path, cancelled=False)
         except Exception as e:
             self.log(f"Error: {e}")
+            self.status_indicator.configure(fg_color="#e74c3c") # Red
+            self.status_label.configure(text="Error occurred")
             def _reset_error():
+                self.is_converting = False
                 self.stop_btn.grid_remove()
                 self.run_btn.grid()
                 self.progress_bar.grid_remove()
-                self.browse_file_btn.configure(state="normal")
-                self.browse_folder_btn.configure(state="normal")
-                self.path_entry.configure(state="normal")
-                self.on_path_changed()
+                self.mode_selector.configure(state="normal")
+                self.combine_switch.configure(state="normal")
             self.after(0, _reset_error)
 
     def run_conversion(self):
-        path = self.path_entry.get()
+        path = self.selected_path
         if not path or not os.path.exists(path):
             self.log("Please select a valid file or folder path.")
             return
