@@ -120,7 +120,7 @@ class App(ctk.CTk):
 
     def show_about(self):
         from tkinter import messagebox
-        messagebox.showinfo("About AI DocPrep", "AI DocPrep\nVersion 1.0.0\n\nThe ultimate pre-processor for feeding documents to LLMs.")
+        messagebox.showinfo("About AI DocPrep", "AI DocPrep\nVersion 1.1.0\n\nA local utility to convert office files into clean, token-efficient Markdown for LLMs.")
 
     def setup_header(self):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")

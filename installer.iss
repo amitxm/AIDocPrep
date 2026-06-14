@@ -1,5 +1,5 @@
 #define MyAppName "AI DocPrep"
-#define MyAppVersion "1.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "AI DocPrep Open Source"
 #define MyAppExeName "AIDocPrep.exe"
 
