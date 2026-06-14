@@ -61,12 +61,36 @@ While code editors and chat clients can index or parse local files, they have ma
 
 ## Installation
 
-### 🚀 Download Pre-Compiled Installer (Recommended)
-You can download the ready-to-run Windows Installer (`.exe`) or macOS App bundle (`.app`) directly from Gumroad (Pay-What-You-Want):
+### 🍏 macOS Installation
 
-👉 **[Download AI DocPrep on Gumroad](https://belsonbox.gumroad.com/l/aidocprep)** *(No Gumroad account required—just enter your email for the download link)*
+We recommend installing via **Homebrew** or direct download:
 
-*Downloading the installer here supports the developer and funds future OS code-signing certificates to remove installation warning screens!*
+#### Option A: Homebrew Cask (Recommended)
+This is the easiest way to install and keep the app updated. It automatically bypasses macOS Gatekeeper quarantine warnings:
+```bash
+brew install amitxm/tap/aidocprep
+```
+
+#### Option B: Direct Download (ZIP)
+1. Download `AIDocPrep_macOS.zip` from the **[Latest GitHub Release](https://github.com/amitxm/AIDocPrep/releases/latest)**.
+2. Unzip the file and drag `AIDocPrep.app` to your `/Applications` folder.
+3. *Note: If you run into macOS security blocks, check the release description for a quick terminal one-liner bypass.*
+
+---
+
+### 🔌 Windows Installation
+
+1. Download `AIDocPrep_Setup.exe` from the **[Latest GitHub Release](https://github.com/amitxm/AIDocPrep/releases/latest)**.
+2. Run the installer and follow the prompts.
+
+---
+
+### 💖 Support the Project
+AI DocPrep is completely free and open-source. If this utility saves you time and context window tokens, you can support future development and help fund macOS/Windows code-signing certificates on Gumroad (Pay-What-You-Want):
+
+👉 **[Support on Gumroad](https://belsonbox.gumroad.com/l/aidocprep)**
+
+---
 
 ### Building from Source (Free)
 If you prefer to compile the application yourself, you can build it from source:
