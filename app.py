@@ -37,6 +37,14 @@ class App(ctk.CTk):
         self.redact_var = ctk.BooleanVar(value=False)
         self.redact_mode_var = ctk.StringVar(value="Regex Only")
         self.ollama_model_var = ctk.StringVar(value="llama3")
+        self.custom_prompt = (
+            "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
+            "including names of people, organizations, locations, addresses, and any credentials from the user's text.\n"
+            "Replace names with [REDACTED_NAME], organizations with [REDACTED_ORG], locations/addresses with [REDACTED_LOCATION].\n"
+            "Keep all other text, punctuation, and markdown formatting exactly the same. Do not summarize the text. "
+            "Do not add any conversational response, explanations, introduction, or markdown block wrapping. Return ONLY the redacted text."
+        )
+        self.custom_terms = ""
         self.cancel_flag = False
         
         # Extension toggles
@@ -195,22 +203,26 @@ class App(ctk.CTk):
     def open_settings(self):
         settings_win = ctk.CTkToplevel(self)
         settings_win.title("Settings")
-        settings_win.geometry("420x600")
+        settings_win.geometry("460x650")
         settings_win.attributes("-topmost", True)
         
-        ctk.CTkLabel(settings_win, text="General Options:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(15, 5), anchor="w")
+        # Create Scrollable Frame to hold all settings
+        scroll_frame = ctk.CTkScrollableFrame(settings_win, fg_color="transparent")
+        scroll_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        chk_open = ctk.CTkCheckBox(settings_win, text="Open Folder on Completion", variable=self.open_folder_var)
+        ctk.CTkLabel(scroll_frame, text="General Options:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
+        
+        chk_open = ctk.CTkCheckBox(scroll_frame, text="Open Folder on Completion", variable=self.open_folder_var)
         chk_open.pack(padx=20, pady=(5, 5), anchor="w")
         
-        chk_yaml = ctk.CTkCheckBox(settings_win, text="Inject YAML Frontmatter", variable=self.yaml_var)
+        chk_yaml = ctk.CTkCheckBox(scroll_frame, text="Inject YAML Frontmatter", variable=self.yaml_var)
         chk_yaml.pack(padx=20, pady=(5, 5), anchor="w")
         
-        chk_toc = ctk.CTkCheckBox(settings_win, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
+        chk_toc = ctk.CTkCheckBox(scroll_frame, text="Generate Table of Contents (Combined Mode)", variable=self.toc_var)
         chk_toc.pack(padx=20, pady=(5, 5), anchor="w")
         
         # Privacy Frame / Section
-        privacy_frame = ctk.CTkFrame(settings_win, fg_color="transparent")
+        privacy_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         privacy_frame.pack(padx=20, pady=(5, 5), fill="x", anchor="w")
         
         chk_redact = ctk.CTkCheckBox(privacy_frame, text="Privacy Mode (Auto-Redact PII)", variable=self.redact_var, command=lambda: toggle_redact_widgets())
@@ -222,7 +234,7 @@ class App(ctk.CTk):
             "Local LLM (Ollama)": "Uses your local running Ollama models (e.g. llama3) to dynamically redact context-based sensitive names and items."
         }
 
-        engine_frame = ctk.CTkFrame(settings_win, fg_color="transparent")
+        engine_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         engine_frame.pack(padx=40, pady=(2, 2), fill="x", anchor="w")
         
         engine_label = ctk.CTkLabel(engine_frame, text="Engine:", font=ctk.CTkFont(size=11))
@@ -256,7 +268,7 @@ class App(ctk.CTk):
         info_icon.bind("<Button-1>", show_engine_info)
 
         engine_help_label = ctk.CTkLabel(
-            settings_win, 
+            scroll_frame, 
             text="", 
             font=ctk.CTkFont(size=10, slant="italic"), 
             text_color="gray50",
@@ -265,23 +277,47 @@ class App(ctk.CTk):
         )
         engine_help_label.pack(padx=40, pady=(1, 5), anchor="w")
         
-        model_label = ctk.CTkLabel(settings_win, text="Ollama Model:", font=ctk.CTkFont(size=11))
-        model_menu = ctk.CTkOptionMenu(settings_win, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=150)
+        model_label = ctk.CTkLabel(scroll_frame, text="Ollama Model:", font=ctk.CTkFont(size=11))
+        model_menu = ctk.CTkOptionMenu(scroll_frame, variable=self.ollama_model_var, values=["llama3", "llama3.2", "mistral", "phi3"], width=150)
+        
+        # Custom Ollama Prompt Box
+        prompt_label = ctk.CTkLabel(scroll_frame, text="Custom Ollama Prompt:", font=ctk.CTkFont(size=11, weight="bold"))
+        prompt_textbox = ctk.CTkTextbox(scroll_frame, height=120, width=350, font=ctk.CTkFont(size=11))
+        prompt_textbox.insert("1.0", self.custom_prompt)
+        
+        # Custom Terms Box
+        terms_label = ctk.CTkLabel(scroll_frame, text="Custom Terms to Redact (one per line):", font=ctk.CTkFont(size=11, weight="bold"))
+        terms_textbox = ctk.CTkTextbox(scroll_frame, height=80, width=350, font=ctk.CTkFont(size=11))
+        terms_textbox.insert("1.0", self.custom_terms)
         
         def on_engine_changed(choice):
             if self.redact_var.get():
                 engine_help_label.configure(text=help_texts.get(choice, ""))
+                
+                # Custom Terms is always visible under Privacy Mode
+                terms_label.pack(padx=40, pady=(5, 0), anchor="w")
+                terms_textbox.pack(padx=40, pady=(2, 5), anchor="w")
+                
                 if choice == "Local LLM (Ollama)":
                     model_label.pack(padx=40, pady=(2, 0), anchor="w")
                     model_menu.pack(padx=40, pady=(2, 5), anchor="w")
                     self.refresh_ollama_models(model_menu)
+                    
+                    prompt_label.pack(padx=40, pady=(5, 0), anchor="w")
+                    prompt_textbox.pack(padx=40, pady=(2, 5), anchor="w")
                 else:
                     model_label.pack_forget()
                     model_menu.pack_forget()
+                    prompt_label.pack_forget()
+                    prompt_textbox.pack_forget()
             else:
                 engine_help_label.configure(text="")
                 model_label.pack_forget()
                 model_menu.pack_forget()
+                prompt_label.pack_forget()
+                prompt_textbox.pack_forget()
+                terms_label.pack_forget()
+                terms_textbox.pack_forget()
                 
         def toggle_redact_widgets():
             if self.redact_var.get():
@@ -292,31 +328,44 @@ class App(ctk.CTk):
                 engine_help_label.configure(text="")
                 model_label.pack_forget()
                 model_menu.pack_forget()
+                prompt_label.pack_forget()
+                prompt_textbox.pack_forget()
+                terms_label.pack_forget()
+                terms_textbox.pack_forget()
 
         # Initialize widget states
         toggle_redact_widgets()
         
-        ctk.CTkLabel(settings_win, text="If Markdown file already exists:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
+        ctk.CTkLabel(scroll_frame, text="If Markdown file already exists:", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
         
-        rb_overwrite = ctk.CTkRadioButton(settings_win, text="Overwrite existing file", variable=self.overwrite_var, value="overwrite")
+        rb_overwrite = ctk.CTkRadioButton(scroll_frame, text="Overwrite existing file", variable=self.overwrite_var, value="overwrite")
         rb_overwrite.pack(padx=30, pady=5, anchor="w")
         
-        rb_copy = ctk.CTkRadioButton(settings_win, text="Create a copy (e.g., file (1).md)", variable=self.overwrite_var, value="copy")
+        rb_copy = ctk.CTkRadioButton(scroll_frame, text="Create a copy (e.g., file (1).md)", variable=self.overwrite_var, value="copy")
         rb_copy.pack(padx=30, pady=(5, 10), anchor="w")
         
-        ctk.CTkLabel(settings_win, text="File Types to Convert (Folder Mode):", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
+        ctk.CTkLabel(scroll_frame, text="File Types to Convert (Folder Mode):", font=ctk.CTkFont(weight="bold")).pack(padx=20, pady=(10, 5), anchor="w")
         
-        ext_frame1 = ctk.CTkFrame(settings_win, fg_color="transparent")
+        ext_frame1 = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         ext_frame1.pack(padx=20, fill="x", anchor="w")
         ctk.CTkCheckBox(ext_frame1, text=".docx", variable=self.ext_docx_var).pack(side="left", padx=(0, 10), pady=5)
         ctk.CTkCheckBox(ext_frame1, text=".pdf", variable=self.ext_pdf_var).pack(side="left", padx=10, pady=5)
-        ctk.CTkCheckBox(ext_frame1, text=".pptx", variable=self.ext_pptx_var).pack(side="left", padx=10, pady=5)
+        chk_pptx = ctk.CTkCheckBox(ext_frame1, text=".pptx", variable=self.ext_pptx_var)
+        chk_pptx.pack(side="left", padx=10, pady=5)
         
-        ext_frame2 = ctk.CTkFrame(settings_win, fg_color="transparent")
+        ext_frame2 = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         ext_frame2.pack(padx=20, fill="x", anchor="w")
         ctk.CTkCheckBox(ext_frame2, text=".xlsx", variable=self.ext_xlsx_var).pack(side="left", padx=(0, 10), pady=5)
         ctk.CTkCheckBox(ext_frame2, text=".vtt", variable=self.ext_vtt_var).pack(side="left", padx=10, pady=5)
         ctk.CTkCheckBox(ext_frame2, text=".html", variable=self.ext_html_var).pack(side="left", padx=10, pady=5)
+
+        # Handle save when window is closed
+        def on_close():
+            self.custom_prompt = prompt_textbox.get("1.0", "end-1c")
+            self.custom_terms = terms_textbox.get("1.0", "end-1c")
+            settings_win.destroy()
+            
+        settings_win.protocol("WM_DELETE_WINDOW", on_close)
 
     def refresh_ollama_models(self, menu_widget):
         def fetch():
@@ -456,7 +505,9 @@ class App(ctk.CTk):
                     inject_yaml=self.yaml_var.get(), 
                     redact_pii=self.redact_var.get(),
                     redact_mode=self.redact_mode_var.get(),
-                    ollama_model=self.ollama_model_var.get()
+                    ollama_model=self.ollama_model_var.get(),
+                    custom_prompt=self.custom_prompt,
+                    custom_terms=self.custom_terms
                 )
                 self.update_progress(1, 1)
                 self.log(f"Success! Output: {out}")
@@ -478,7 +529,9 @@ class App(ctk.CTk):
                     inject_yaml=self.yaml_var.get(),
                     redact_pii=self.redact_var.get(),
                     redact_mode=self.redact_mode_var.get(),
-                    ollama_model=self.ollama_model_var.get()
+                    ollama_model=self.ollama_model_var.get(),
+                    custom_prompt=self.custom_prompt,
+                    custom_terms=self.custom_terms
                 )
                 
                 if self.cancel_flag:
