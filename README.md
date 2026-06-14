@@ -63,18 +63,24 @@ While code editors and chat clients can index or parse local files, they have ma
 
 ### 🍏 macOS Installation
 
-We recommend installing via **Homebrew** or direct download:
+We recommend using the **Terminal Installer** for the smoothest experience, or doing a manual download:
 
-#### Option A: Homebrew Cask (Recommended)
-This is the easiest way to install and keep the app updated. It automatically bypasses macOS Gatekeeper quarantine warnings:
+#### Option A: Terminal Installer (Recommended)
+Copy and paste this command into your Terminal to download, extract, and install the app directly into your `/Applications` folder. Since it downloads via `curl`, it **automatically bypasses** macOS Gatekeeper quarantine blocks and "damaged app" warnings:
+
 ```bash
-brew install amitxm/tap/aidocprep
+curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/download/v1.1/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
 ```
 
-#### Option B: Direct Download (ZIP)
+*Once run, you can immediately launch **AI DocPrep** from your Applications folder or Spotlight.*
+
+#### Option B: Manual Download
 1. Download `AIDocPrep_macOS.zip` from the **[Latest GitHub Release](https://github.com/amitxm/AIDocPrep/releases/latest)**.
 2. Unzip the file and drag `AIDocPrep.app` to your `/Applications` folder.
-3. *Note: If you run into macOS security blocks, check the release description for a quick terminal one-liner bypass.*
+3. If macOS blocks launch with a *"damaged app"* error, either run the Terminal Installer above, or bypass it manually:
+   - Open **System Settings** -> **Privacy & Security**.
+   - Scroll down to the **Security** section.
+   - Click **Open Anyway** next to the `AIDocPrep` block message.
 
 ---
 
