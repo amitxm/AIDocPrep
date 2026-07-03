@@ -11,3 +11,11 @@ combined_master.md
 *.md
 !README.md
 Output/
+
+# Tauri desktop app
+desktop/node_modules/
+desktop/build/
+desktop/.svelte-kit/
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+desktop/src-tauri/gen/
