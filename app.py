@@ -791,9 +791,10 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 colors = (("#FDF0DB", "#3B2E14"), ("#92400E", "#F5C544"))
             else:
                 text = f"✓  {n_done} file{'s' if n_done != 1 else ''} converted in {elapsed_text} · ~{total_tokens:,} tokens total"
-                saved = stats["src"] - stats["out_comparable"]
-                if saved > 0:
-                    text += f" · ~{saved:,} saved vs raw"
+                if stats["src"] > stats["out_comparable"] > 0:
+                    pct = round(100 * (1 - stats["out_comparable"] / stats["src"]))
+                    if pct > 0:
+                        text += f" · {pct}% saved vs raw"
                 colors = (("#DFF2E1", "#173B23"), self.success_color)
             self.summary_banner.configure(text=text, fg_color=colors[0], text_color=colors[1])
             self.footer_label.configure(text=self.result_dir or "")

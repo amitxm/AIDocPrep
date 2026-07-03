@@ -219,8 +219,10 @@ def main(argv=None) -> int:
     else:
         status = "Cancelled" if _cancelled else "Done"
         line = f"{status}: {summary['converted']} converted, {summary['failed']} failed, ~{total_tokens:,} tokens in {elapsed}s"
-        if saved:
-            line += f" (~{saved:,} tokens saved vs raw source)"
+        if stats["src"] > stats["out_comparable"] > 0:
+            pct = round(100 * (1 - stats["out_comparable"] / stats["src"]))
+            if pct > 0:
+                line += f" ({pct}% saved vs raw)"
         print(line, flush=True)
 
     if _cancelled:
