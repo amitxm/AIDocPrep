@@ -84,7 +84,8 @@ def make_pdf(path, pages):
 
 pdf_path = os.path.join(work, "sample.pdf")
 make_pdf(pdf_path, pages=3)
-check("pdf baseline = pages x 2000", estimate_source_tokens(pdf_path) == 6000, str(estimate_source_tokens(pdf_path)))
+check("pdf baseline = text + pages x 1500", estimate_source_tokens(pdf_path, output_tokens=800) == 3 * 1500 + 800,
+      str(estimate_source_tokens(pdf_path, output_tokens=800)))
 
 # 3. redaction (regex)
 red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")
