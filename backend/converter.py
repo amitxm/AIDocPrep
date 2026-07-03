@@ -1,17 +1,48 @@
 import os
 import re
 import datetime
+import threading
 import concurrent.futures
 import urllib.request
 import json
 from markitdown import MarkItDown
+
+SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".vtt", ".html", ".htm"]
+
+DEFAULT_OLLAMA_PROMPT = (
+    "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
+    "including names of people, organizations, locations, addresses, and any credentials from the user's text.\n"
+    "Replace names with [REDACTED_NAME], organizations with [REDACTED_ORG], locations/addresses with [REDACTED_LOCATION].\n"
+    "Keep all other text, punctuation, and markdown formatting exactly the same. Do not summarize the text. "
+    "Do not add any conversational response, explanations, introduction, or markdown block wrapping. Return ONLY the redacted text."
+)
+
+# MarkItDown instances are reused per thread; spaCy and Ollama are shared
+# resources that must not be hit from every pool thread at once.
+_thread_local = threading.local()
+_spacy_lock = threading.Lock()
+_ollama_lock = threading.Lock()
+_nlp = None
+
+
+def _get_markitdown() -> MarkItDown:
+    md = getattr(_thread_local, "markitdown", None)
+    if md is None:
+        md = MarkItDown()
+        _thread_local.markitdown = md
+    return md
+
+
+def estimate_tokens(text: str) -> int:
+    """Rough LLM token estimate (~4 characters per token for English text)."""
+    return max(1, len(text) // 4)
 
 
 def get_unique_filename(base_path: str) -> str:
     """If file exists, appends (1), (2), etc. to the filename to avoid overwriting."""
     if not os.path.exists(base_path):
         return base_path
-    
+
     name, ext = os.path.splitext(base_path)
     counter = 1
     while True:
@@ -24,7 +55,7 @@ def parse_vtt(file_path: str) -> str:
     """Parses a VTT file and extracts only the spoken text, stripping timestamps and indices."""
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
-        
+
     text_lines = []
     for line in lines:
         line = line.strip()
@@ -38,22 +69,32 @@ def parse_vtt(file_path: str) -> str:
         # Skip timestamps (e.g. 00:00:00.000 --> 00:00:02.000)
         if "-->" in line:
             continue
-            
+
         text_lines.append(line)
-        
+
     return "\n\n".join(text_lines)
 
 def generate_yaml_frontmatter(original_file: str) -> str:
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     name = os.path.basename(original_file)
     ext = os.path.splitext(original_file)[1].lower()
-    
+
     yaml = "---\n"
     yaml += f"original_filename: {name}\n"
     yaml += f"source_format: {ext}\n"
     yaml += f"date_converted: {date_str}\n"
     yaml += "---\n\n"
     return yaml
+
+
+def _load_spacy():
+    # The model must be bundled with the app (see build scripts); a runtime
+    # download can't work in a frozen build and is barred by store sandboxes.
+    global _nlp
+    if _nlp is None:
+        import spacy
+        _nlp = spacy.load("en_core_web_sm")
+    return _nlp
 
 def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> str:
     """Scans text and replaces common PII, API keys, credentials, and network addresses with redacted labels."""
@@ -70,16 +111,16 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
 
     # Email
     text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED_EMAIL]', text)
-    
+
     # SSN (XXX-XX-XXXX or XXX XX XXXX)
     text = re.sub(r'\b\d{3}[-.\s]\d{2}[-.\s]\d{4}\b', '[REDACTED_SSN]', text)
-    
+
     # Credit Card (16 digits with optional spaces or dashes)
     text = re.sub(r'\b(?:\d{4}[-\s]?){3}\d{4}\b', '[REDACTED_CC]', text)
-    
+
     # Phone (US/Generic: (555) 123-4567, 555-123-4567, etc.)
     text = re.sub(r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', '[REDACTED_PHONE]', text)
-    
+
     # API Keys & Tokens
     # AWS Access Key ID
     text = re.sub(r'\b(AKIA|ASCA|ASIA)[0-9A-Z]{16}\b', '[REDACTED_AWS_KEY_ID]', text)
@@ -87,7 +128,7 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
     text = re.sub(r'\bsk-[a-zA-Z0-9_-]{20,}\b', '[REDACTED_OPENAI_KEY]', text)
     # Slack Tokens
     text = re.sub(r'\bxox[baprs]-[0-9a-zA-Z-]{10,}\b', '[REDACTED_SLACK_TOKEN]', text)
-    
+
     # Generic secret/token/password assignments (e.g. secret = "value" or "password": "value")
     text = re.sub(
         r'([\'\x22]?)\b(api_key|apikey|secret|token|password|passwd|private_key)\b\1(\s*[:=]\s*)([\'\x22]?)([^\x22\'\s]{8,})\4',
@@ -107,7 +148,7 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
 
     # IP Address (IPv4)
     text = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '[REDACTED_IP]', text)
-    
+
     # IP Address (IPv6)
     text = re.sub(r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', '[REDACTED_IPV6]', text)
 
@@ -117,43 +158,35 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
     # ------------------ Local NER (spaCy) ------------------
     if mode == "Local NER (spaCy)":
         try:
-            import spacy
-            try:
-                nlp = spacy.load("en_core_web_sm")
-            except OSError:
-                # If model is not found, attempt to download it dynamically
-                import spacy.cli
-                spacy.cli.download("en_core_web_sm")
-                nlp = spacy.load("en_core_web_sm")
-            
-            # Process in chunks of 100,000 chars to stay safe on memory
-            chunk_size = 100000
-            chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-            redacted_chunks = []
-            for chunk in chunks:
-                doc = nlp(chunk)
-                ents = sorted(doc.ents, key=lambda e: e.start_char, reverse=True)
-                chunk_chars = list(chunk)
-                for ent in ents:
-                    if ent.label_ == "PERSON":
-                        placeholder = "[REDACTED_NAME]"
-                    elif ent.label_ == "ORG":
-                        placeholder = "[REDACTED_ORG]"
-                    elif ent.label_ == "GPE":
-                        placeholder = "[REDACTED_LOCATION]"
-                    else:
-                        continue
-                    chunk_chars[ent.start_char:ent.end_char] = list(placeholder)
-                redacted_chunks.append("".join(chunk_chars))
-            text = "".join(redacted_chunks)
+            with _spacy_lock:
+                nlp = _load_spacy()
+                # Process in chunks of 100,000 chars to stay safe on memory
+                chunk_size = 100000
+                chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+                redacted_chunks = []
+                for chunk in chunks:
+                    doc = nlp(chunk)
+                    ents = sorted(doc.ents, key=lambda e: e.start_char, reverse=True)
+                    chunk_chars = list(chunk)
+                    for ent in ents:
+                        if ent.label_ == "PERSON":
+                            placeholder = "[REDACTED_NAME]"
+                        elif ent.label_ == "ORG":
+                            placeholder = "[REDACTED_ORG]"
+                        elif ent.label_ == "GPE":
+                            placeholder = "[REDACTED_LOCATION]"
+                        else:
+                            continue
+                        chunk_chars[ent.start_char:ent.end_char] = list(placeholder)
+                    redacted_chunks.append("".join(chunk_chars))
+                text = "".join(redacted_chunks)
         except Exception as e:
             print(f"Error running local spaCy NER: {e}")
 
     # ------------------ Local LLM (Ollama) -----------------
     elif mode == "Local LLM (Ollama)":
         try:
-            # Check if Ollama is running and process text in chunks to stay within model context window limits
-            # Chunking by paragraphs or ~4000 characters
+            # Chunk to stay within model context window limits (~4000 chars per request)
             chunk_size = 4000
             lines = text.split("\n")
             chunks = []
@@ -170,46 +203,43 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
             if current_chunk:
                 chunks.append("\n".join(current_chunk))
 
-            redacted_chunks = []
-            for chunk in chunks:
-                if not chunk.strip():
-                    redacted_chunks.append(chunk)
-                    continue
-                
-                # Send HTTP request to local Ollama API
-                url = "http://localhost:11434/api/generate"
-                base_prompt = custom_prompt if (custom_prompt and custom_prompt.strip()) else (
-                    "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
-                    "including names of people, organizations, locations, addresses, and any credentials from the user's text.\n"
-                    "Replace names with [REDACTED_NAME], organizations with [REDACTED_ORG], locations/addresses with [REDACTED_LOCATION].\n"
-                    "Keep all other text, punctuation, and markdown formatting exactly the same. Do not summarize the text. "
-                    "Do not add any conversational response, explanations, introduction, or markdown block wrapping. Return ONLY the redacted text."
-                )
-                prompt = f"{base_prompt}\n\nText:\n{chunk}"
-                
-                payload = {
-                    "model": ollama_model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.0  # Keep it highly deterministic
-                    }
-                }
-                
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                with urllib.request.urlopen(req, timeout=30.0) as response:
-                    res_data = json.loads(response.read().decode("utf-8"))
-                    redacted_text = res_data.get("response", "").strip()
-                    if redacted_text:
-                        redacted_chunks.append(redacted_text)
-                    else:
+            base_prompt = custom_prompt if (custom_prompt and custom_prompt.strip()) else DEFAULT_OLLAMA_PROMPT
+
+            # A local Ollama server processes one generation at a time; the lock
+            # keeps pool threads from stacking requests until they time out.
+            with _ollama_lock:
+                redacted_chunks = []
+                for chunk in chunks:
+                    if not chunk.strip():
                         redacted_chunks.append(chunk)
-            text = "\n".join(redacted_chunks)
+                        continue
+
+                    url = "http://localhost:11434/api/generate"
+                    prompt = f"{base_prompt}\n\nText:\n{chunk}"
+
+                    payload = {
+                        "model": ollama_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.0  # Keep it highly deterministic
+                        }
+                    }
+
+                    req = urllib.request.Request(
+                        url,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}
+                    )
+
+                    with urllib.request.urlopen(req, timeout=120.0) as response:
+                        res_data = json.loads(response.read().decode("utf-8"))
+                        redacted_text = res_data.get("response", "").strip()
+                        if redacted_text:
+                            redacted_chunks.append(redacted_text)
+                        else:
+                            redacted_chunks.append(chunk)
+                text = "\n".join(redacted_chunks)
         except Exception as e:
             print(f"Error running Ollama redaction: {e}")
 
@@ -222,80 +252,121 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
-        
+
     base_name, ext = os.path.splitext(file_path)
     ext = ext.lower()
     output_path = f"{base_name}.md"
-    
+
     if not overwrite:
         output_path = get_unique_filename(output_path)
-        
+
     if ext == ".vtt":
         text_content = parse_vtt(file_path)
     else:
-        md = MarkItDown()
-        result = md.convert(file_path)
+        result = _get_markitdown().convert(file_path)
         text_content = result.text_content
-        
+
     if inject_yaml:
         text_content = generate_yaml_frontmatter(file_path) + text_content
-        
+
     if redact_pii:
         text_content = redact_pii_content(text_content, mode=redact_mode, ollama_model=ollama_model, custom_prompt=custom_prompt, custom_terms=custom_terms)
-    
+
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text_content)
-        
+
     return output_path
+
+
+def scan_folder(folder_path: str, extensions: list[str] = None) -> list[str]:
+    """Returns all supported files in a folder tree, skipping Office temp/lock
+    files (~$...) and hidden dotfiles."""
+    if extensions is None:
+        extensions = SUPPORTED_EXTENSIONS
+
+    target_files = []
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            if file.startswith("~$") or file.startswith("."):
+                continue
+            ext = os.path.splitext(file)[1].lower()
+            if ext in extensions:
+                target_files.append(os.path.join(root, file))
+    target_files.sort()
+    return target_files
+
+
+def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> list[str]:
+    """
+    Converts a list of files to Markdown in parallel.
+
+    progress_callback receives one event dict per finished file:
+      {"file", "status": "done"|"error", "output", "tokens", "error", "done", "total"}
+    cancel_check() returning True stops scheduling new files (in-flight ones finish).
+    Returns the list of output paths that were written.
+    """
+    total = len(file_paths)
+    converted_files = []
+
+    # ~75% of CPU cores (minimum 1) so conversion doesn't bog down the machine
+    cpu_cores = os.cpu_count() or 4
+    optimal_workers = max(1, int(cpu_cores * 0.75))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
+        future_to_file = {
+            executor.submit(convert_file, file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms): file_path
+            for file_path in file_paths
+        }
+
+        done_count = 0
+        for future in concurrent.futures.as_completed(future_to_file):
+            if cancel_check and cancel_check():
+                for f in future_to_file:
+                    f.cancel()
+                break
+
+            file_path = future_to_file[future]
+            done_count += 1
+            event = {"file": file_path, "status": "done", "output": None, "tokens": 0, "error": None, "done": done_count, "total": total}
+            try:
+                out_path = future.result()
+                converted_files.append(out_path)
+                event["output"] = out_path
+                try:
+                    with open(out_path, "r", encoding="utf-8") as f:
+                        event["tokens"] = estimate_tokens(f.read())
+                except OSError:
+                    pass
+            except Exception as e:
+                event["status"] = "error"
+                event["error"] = str(e)
+
+            if progress_callback:
+                progress_callback(event)
+
+    return converted_files
+
 
 def convert_folder(folder_path: str, extensions: list[str] = None, progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> list[str]:
     """
     Converts all supported files in a folder to Markdown.
-    Accepts an optional progress_callback(current, total) to report status.
-    Accepts cancel_check callback that returns True if user cancelled.
+    Kept for compatibility: progress_callback here is the old (current, total) style.
     """
-    if extensions is None:
-        extensions = [".docx", ".pdf", ".pptx", ".xlsx", ".vtt", ".html", ".htm"]
-        
-    target_files = []
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            ext = os.path.splitext(file)[1].lower()
-            if ext in extensions:
-                target_files.append(os.path.join(root, file))
-                
-    total = len(target_files)
-    converted_files = []
-    
-    # Use ThreadPoolExecutor for cross-platform, lightweight parallelization
-    # This automatically scales the number of threads based on CPU cores
-    # Calculate optimal workers: ~75% of CPU cores (minimum 1) so it doesn't bog down the machine
-    cpu_cores = os.cpu_count() or 4
-    optimal_workers = max(1, int(cpu_cores * 0.75))
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
-        # Submit all file conversion tasks to the thread pool
-        future_to_file = {
-            executor.submit(convert_file, file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms): file_path 
-            for file_path in target_files
-        }
-        
-        # Process results as they complete (out of order, but highly parallel)
-        for idx, future in enumerate(concurrent.futures.as_completed(future_to_file)):
-            if cancel_check and cancel_check():
-                # If the user hit 'Stop', cancel all pending tasks in the queue
-                for f in future_to_file:
-                    f.cancel()
-                break
-                
-            file_path = future_to_file[future]
-            try:
-                out_path = future.result()
-                converted_files.append(out_path)
-            except Exception as e:
-                print(f"Error converting {file_path}: {e}")
-                
-            if progress_callback:
-                progress_callback(idx + 1, total)
-                    
-    return converted_files
+    target_files = scan_folder(folder_path, extensions)
+
+    def event_callback(event):
+        if progress_callback:
+            progress_callback(event["done"], event["total"])
+
+    return convert_files(
+        target_files,
+        progress_callback=event_callback if progress_callback else None,
+        cancel_check=cancel_check,
+        overwrite=overwrite,
+        inject_yaml=inject_yaml,
+        redact_pii=redact_pii,
+        redact_mode=redact_mode,
+        ollama_model=ollama_model,
+        custom_prompt=custom_prompt,
+        custom_terms=custom_terms,
+    )

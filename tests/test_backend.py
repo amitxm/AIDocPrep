@@ -1,0 +1,100 @@
+"""Backend tests: conversion, combining, redaction, settings persistence.
+
+Run with:  python tests/test_backend.py
+"""
+import os
+import sys
+import shutil
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from backend.converter import convert_files, scan_folder, convert_file, estimate_tokens
+from backend.combiner import combine_files, combine_folder
+from backend import settings as settings_mod
+
+failures = []
+
+def check(name, cond, detail=""):
+    status = "PASS" if cond else "FAIL"
+    print(f"[{status}] {name} {detail}")
+    if not cond:
+        failures.append(name)
+
+work = tempfile.mkdtemp(prefix="docprep_test_")
+sub = os.path.join(work, "notes")
+os.makedirs(sub)
+
+with open(os.path.join(work, "alpha.html"), "w", encoding="utf-8") as f:
+    f.write("<html><body><h1>Alpha Report</h1><p>Contact: jane@example.com and call 555-123-4567.</p></body></html>")
+with open(os.path.join(sub, "beta.html"), "w", encoding="utf-8") as f:
+    f.write("<html><body><h2>Beta Notes</h2><p>Quarterly revenue was strong.</p></body></html>")
+with open(os.path.join(work, "meeting.vtt"), "w", encoding="utf-8") as f:
+    f.write("WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello and welcome.\n\n2\n00:00:02.000 --> 00:00:04.000\nLet's begin the review.\n")
+with open(os.path.join(work, "~$temp.docx"), "w") as f:
+    f.write("junk")
+with open(os.path.join(work, "existing-note.md"), "w", encoding="utf-8") as f:
+    f.write("# My own pre-existing note\nShould NOT be swept into combined output.\n")
+
+# 1. scan_folder skips temp files and pre-existing md
+found = scan_folder(work)
+check("scan_folder finds 3 files", len(found) == 3, f"found={[os.path.basename(f) for f in found]}")
+check("scan_folder skips ~$ temp", not any("~$" in f for f in found))
+
+# 2. convert_files with events
+events = []
+outs = convert_files(found, progress_callback=events.append, inject_yaml=True)
+check("convert_files output count", len(outs) == 3, f"outs={len(outs)}")
+check("events carry tokens", all(e["tokens"] > 0 for e in events if e["status"] == "done"))
+check("events done/total", events[-1]["done"] == 3 and events[-1]["total"] == 3)
+alpha_md = os.path.join(work, "alpha.md")
+check("yaml frontmatter injected", open(alpha_md, encoding="utf-8").read().startswith("---\n"))
+
+# 3. redaction (regex)
+red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")
+red_text = open(red_out, encoding="utf-8").read()
+check("keep-both naming", red_out.endswith("alpha (1).md"), red_out)
+check("email redacted", "[REDACTED_EMAIL]" in red_text)
+check("phone redacted", "[REDACTED_PHONE]" in red_text)
+os.remove(red_out)
+
+# 4. combine_files only includes the given list (not existing-note.md)
+combined = combine_files(sorted(outs), os.path.join(work, "test-combined.md"), base_dir=work, collection_name="test")
+ctext = open(combined, encoding="utf-8").read()
+check("combined excludes pre-existing note", "pre-existing note" not in ctext)
+check("combined has TOC", "## Table of Contents" in ctext)
+check("combined has subfolder rel name", "beta.md" in ctext)
+check("combined heading uses collection name", "# test" in ctext)
+
+# 5. combine_folder compat wrapper still works
+os.remove(combined)
+combined2 = combine_folder(work, output_filename="master.md")
+check("combine_folder wrapper", combined2.endswith("master.md") and os.path.exists(combined2))
+
+# 6. settings roundtrip (redirect config dir into temp)
+settings_mod.config_dir = lambda: os.path.join(work, "cfg")
+settings_mod.config_path = lambda: os.path.join(work, "cfg", "settings.json")
+s = settings_mod.load_settings()
+check("defaults loaded", s["output_mode"] == "both" and s["conflict"] == "keep_both")
+s["output_mode"] = "combined_only"
+s["redact"] = True
+s["custom_terms"] = "ACME Corp"
+settings_mod.save_settings(s)
+s2 = settings_mod.load_settings()
+check("settings persist", s2["output_mode"] == "combined_only" and s2["redact"] is True and s2["custom_terms"] == "ACME Corp")
+
+# 7. token estimate sanity
+check("estimate_tokens", estimate_tokens("word " * 400) == 500)
+
+# 8. cancellation stops scheduling
+cancel_calls = {"n": 0}
+def cancel_after_first():
+    cancel_calls["n"] += 1
+    return cancel_calls["n"] > 1
+outs_c = convert_files(found, cancel_check=cancel_after_first, overwrite=True)
+check("cancel returns partial", len(outs_c) <= len(found))
+
+shutil.rmtree(work, ignore_errors=True)
+print()
+print("FAILURES:", failures if failures else "none")
+sys.exit(1 if failures else 0)

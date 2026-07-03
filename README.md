@@ -28,12 +28,16 @@ If you use **Obsidian**, **Notion**, **Logseq**, or other Markdown-based knowled
 
 ## Features
 
-- **Drag & Drop UI:** Drop files or entire folders into the window to start converting.
-- **Format Detection:** Powered by Microsoft's `MarkItDown` and Google's `Magika`. It inspects file signatures rather than relying on extension names, so it handles mislabeled files correctly.
-- **Local Redaction:** A built-in regex-based PII scrubber removes sensitive data. Nothing is sent to the internet.
-- **Folder Combiner:** Merge multiple documents into a single master Markdown file, complete with a table of contents and anchor links.
+- **Drag & Drop Queue:** Drop any mix of files and folders anywhere on the window — they stack up as one batch you convert with a single click. No modes to pick first.
+- **Token Counts:** Each converted file (and the batch total) shows an approximate LLM token count, so you know what you're about to paste into a context window.
+- **Flexible Output:** One dropdown chooses between individual `.md` files, individual files plus a combined master file, or the combined file only.
+- **Results You Can Act On:** When a batch finishes, jump straight to the output folder or copy all the Markdown to your clipboard.
+- **Conversion Engine:** Powered by Microsoft's `MarkItDown`. Handles `.docx`, `.pdf`, `.pptx`, `.xlsx`, `.html`, and `.vtt` transcripts; Office temp/lock files are skipped automatically.
+- **Local Redaction:** A built-in PII scrubber (regex, on-device spaCy NER, or a local Ollama model) removes sensitive data before the text leaves your machine. Nothing is sent to the internet.
+- **Folder Combiner:** Merges the files it just converted into a single master Markdown file with a table of contents — your pre-existing notes in the same folder are never swept in.
+- **Persistent Settings:** Output, YAML, redaction engine, custom prompts and terms are all saved and restored between launches.
 - **Multi-threaded Processing:** Conversions run in parallel across CPU threads (capped at 75% usage to prevent system slowdowns).
-- **Metadata Insertion:** Adds YAML frontmatter (timestamps, original paths, file sizes) to the top of each file, which is useful for Obsidian, Notion, or custom scripts.
+- **Metadata Insertion:** Adds YAML frontmatter (timestamps, original paths, source format) to the top of each file, which is useful for Obsidian, Notion, or custom scripts.
 - **OS Integration:** Add "Convert to Markdown" options directly to the Windows right-click menu or macOS Quick Actions.
 
 ## FAQ: Why use this instead of RAG?
@@ -56,7 +60,7 @@ If your dataset is so large that you *must* use RAG, chunking raw PDFs or HTML i
 While code editors and chat clients can index or parse local files, they have major limitations:
 - **Format limits:** They often fail or hallucinate when parsing presentation slides (`.pptx`) or complex spreadsheets (`.xlsx`). AI DocPrep uses dedicated conversion engines (like `MarkItDown`) to translate tables and layouts into clean Markdown representations that LLMs actually understand.
 - **Privacy:** Native chat apps upload your raw files straight to the cloud. AI DocPrep runs completely offline, meaning you can redact PII (SSNs, emails, credit cards, IP addresses) *before* the text leaves your machine.
-- **Mislabeled extensions:** Native tools rely on file extensions. AI DocPrep uses Google's `Magika` deep learning signature detection to identify and read files even if their extensions are missing or incorrect.
+- **Format-aware parsing:** AI DocPrep uses dedicated converters per format (via `MarkItDown`) instead of treating everything as plain text, so tables, slides, and spreadsheets survive the trip to Markdown.
 - **Scattered files:** Uploading 50 files manually can trigger UI limits. AI DocPrep merges everything into a single structured master document with a generated Table of Contents, making context ingestion a one-click action.
 
 ## Installation
