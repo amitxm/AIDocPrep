@@ -60,7 +60,31 @@ alpha_event = next(e for e in events if e["file"].endswith("alpha.html"))
 check("html event carries source_tokens", (alpha_event.get("source_tokens") or 0) > 0, str(alpha_event.get("source_tokens")))
 check("html raw > markdown output", alpha_event["source_tokens"] > alpha_event["tokens"],
       f"src={alpha_event['source_tokens']} out={alpha_event['tokens']}")
-check("pdf has no raw baseline", estimate_source_tokens("anything.pdf") is None)
+check("unknown ext has no raw baseline", estimate_source_tokens("anything.xyz") is None)
+
+def make_pdf(path, pages):
+    """Writes a minimal valid PDF with the given page count."""
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>"]
+    kids = " ".join(f"{3 + i} 0 R" for i in range(pages))
+    objs.append(f"<< /Type /Pages /Kids [{kids}] /Count {pages} >>".encode())
+    for _ in range(pages):
+        objs.append(b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for n, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += f"{n} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_pos = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n".encode() + b"0000000000 65535 f \n"
+    for off in offsets:
+        out += f"{off:010d} 00000 n \n".encode()
+    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode()
+    with open(path, "wb") as f:
+        f.write(bytes(out))
+
+pdf_path = os.path.join(work, "sample.pdf")
+make_pdf(pdf_path, pages=3)
+check("pdf baseline = pages x 2000", estimate_source_tokens(pdf_path) == 6000, str(estimate_source_tokens(pdf_path)))
 
 # 3. redaction (regex)
 red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")

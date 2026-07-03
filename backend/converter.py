@@ -44,10 +44,16 @@ _PLAIN_TEXT_EXTENSIONS = (".html", ".htm", ".vtt", ".txt", ".csv", ".json", ".md
 _OOXML_EXTENSIONS = (".docx", ".pptx", ".xlsx")
 
 
+# LLM providers process each raw-uploaded PDF page as text plus a page image;
+# Anthropic documents ~1,500-3,000 tokens per page, so 2,000 is the midpoint.
+_PDF_TOKENS_PER_PAGE = 2000
+
+
 def estimate_source_tokens(file_path: str):
-    """Rough token estimate of the file's raw textual representation, used to
-    show savings vs the converted Markdown. Returns None where no honest
-    baseline exists (e.g. PDF, whose bytes are compressed binary streams)."""
+    """Rough token estimate of the file's raw representation, used to show
+    savings vs the converted Markdown. Text formats use raw bytes; OOXML uses
+    the uncompressed XML; PDF uses page count times what providers charge for
+    a raw PDF upload. Returns None where no honest baseline exists."""
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in _PLAIN_TEXT_EXTENSIONS:
@@ -60,6 +66,11 @@ def estimate_source_tokens(file_path: str):
                     if info.filename.endswith((".xml", ".rels")):
                         total += info.file_size  # uncompressed size
             return max(1, total // 4) if total else None
+        if ext == ".pdf":
+            from pdfminer.pdfpage import PDFPage
+            with open(file_path, "rb") as f:
+                pages = sum(1 for _ in PDFPage.get_pages(f))
+            return pages * _PDF_TOKENS_PER_PAGE if pages else None
     except Exception:
         return None
     return None
