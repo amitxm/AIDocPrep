@@ -40,6 +40,20 @@ If you use **Obsidian**, **Notion**, **Logseq**, or other Markdown-based knowled
 - **Metadata Insertion:** Adds YAML frontmatter (timestamps, original paths, source format) to the top of each file, which is useful for Obsidian, Notion, or custom scripts.
 - **OS Integration:** Add "Convert to Markdown" options directly to the Windows right-click menu or macOS Quick Actions.
 
+## Command Line
+
+The conversion engine also runs headless via `docprep_core.py` — handy for scripts, watch folders, or automation:
+
+```bash
+# Convert files and folders (redacted, combined into one master file)
+python docprep_core.py ./research report.docx --output combined-only --redact
+
+# Machine-readable progress (one JSON event per line) for tooling
+python docprep_core.py ./docs --json
+```
+
+Run `python docprep_core.py --help` for all options (output mode, conflict policy, YAML/TOC toggles, redaction engine, custom terms).
+
 ## FAQ: Why use this instead of RAG?
 
 Retrieval-Augmented Generation (RAG) is useful for searching across massive datasets (like millions of customer service logs), but it is often overkill and less effective for smaller knowledge bases (like code documentation, project folders, or product manuals).
