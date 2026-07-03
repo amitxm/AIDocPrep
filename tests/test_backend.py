@@ -9,7 +9,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.converter import convert_files, scan_folder, convert_file, estimate_tokens
+from backend.converter import convert_files, scan_folder, convert_file, estimate_tokens, estimate_source_tokens
 from backend.combiner import combine_files, combine_folder
 from backend import settings as settings_mod
 
@@ -26,7 +26,12 @@ sub = os.path.join(work, "notes")
 os.makedirs(sub)
 
 with open(os.path.join(work, "alpha.html"), "w", encoding="utf-8") as f:
-    f.write("<html><body><h1>Alpha Report</h1><p>Contact: jane@example.com and call 555-123-4567.</p></body></html>")
+    paragraphs = "".join(
+        f'<div class="section-wrap outer"><p style="margin:0;padding:4px;color:#333">'
+        f'<span class="body-text">Paragraph {i} with meaningful report content here.</span></p></div>'
+        for i in range(30)
+    )
+    f.write(f"<html><body><h1>Alpha Report</h1><p>Contact: jane@example.com and call 555-123-4567.</p>{paragraphs}</body></html>")
 with open(os.path.join(sub, "beta.html"), "w", encoding="utf-8") as f:
     f.write("<html><body><h2>Beta Notes</h2><p>Quarterly revenue was strong.</p></body></html>")
 with open(os.path.join(work, "meeting.vtt"), "w", encoding="utf-8") as f:
@@ -49,6 +54,13 @@ check("events carry tokens", all(e["tokens"] > 0 for e in events if e["status"] 
 check("events done/total", events[-1]["done"] == 3 and events[-1]["total"] == 3)
 alpha_md = os.path.join(work, "alpha.md")
 check("yaml frontmatter injected", open(alpha_md, encoding="utf-8").read().startswith("---\n"))
+
+# 2b. source-token baseline for savings display
+alpha_event = next(e for e in events if e["file"].endswith("alpha.html"))
+check("html event carries source_tokens", (alpha_event.get("source_tokens") or 0) > 0, str(alpha_event.get("source_tokens")))
+check("html raw > markdown output", alpha_event["source_tokens"] > alpha_event["tokens"],
+      f"src={alpha_event['source_tokens']} out={alpha_event['tokens']}")
+check("pdf has no raw baseline", estimate_source_tokens("anything.pdf") is None)
 
 # 3. redaction (regex)
 red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")

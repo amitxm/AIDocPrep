@@ -38,6 +38,33 @@ def estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+# Formats whose raw bytes are text an LLM would actually be fed
+_PLAIN_TEXT_EXTENSIONS = (".html", ".htm", ".vtt", ".txt", ".csv", ".json", ".md")
+# Zip-of-XML Office formats: the raw representation is the uncompressed XML
+_OOXML_EXTENSIONS = (".docx", ".pptx", ".xlsx")
+
+
+def estimate_source_tokens(file_path: str):
+    """Rough token estimate of the file's raw textual representation, used to
+    show savings vs the converted Markdown. Returns None where no honest
+    baseline exists (e.g. PDF, whose bytes are compressed binary streams)."""
+    ext = os.path.splitext(file_path)[1].lower()
+    try:
+        if ext in _PLAIN_TEXT_EXTENSIONS:
+            return max(1, os.path.getsize(file_path) // 4)
+        if ext in _OOXML_EXTENSIONS:
+            import zipfile
+            total = 0
+            with zipfile.ZipFile(file_path) as z:
+                for info in z.infolist():
+                    if info.filename.endswith((".xml", ".rels")):
+                        total += info.file_size  # uncompressed size
+            return max(1, total // 4) if total else None
+    except Exception:
+        return None
+    return None
+
+
 def get_unique_filename(base_path: str) -> str:
     """If file exists, appends (1), (2), etc. to the filename to avoid overwriting."""
     if not os.path.exists(base_path):
@@ -327,11 +354,12 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
 
             file_path = future_to_file[future]
             done_count += 1
-            event = {"file": file_path, "status": "done", "output": None, "tokens": 0, "error": None, "done": done_count, "total": total}
+            event = {"file": file_path, "status": "done", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": done_count, "total": total}
             try:
                 out_path = future.result()
                 converted_files.append(out_path)
                 event["output"] = out_path
+                event["source_tokens"] = estimate_source_tokens(file_path)
                 try:
                     with open(out_path, "r", encoding="utf-8") as f:
                         event["tokens"] = estimate_tokens(f.read())

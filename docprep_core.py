@@ -137,7 +137,7 @@ def main(argv=None) -> int:
     else:
         say(f"Converting {len(files)} file{'s' if len(files) != 1 else ''}...")
 
-    stats = {"done": 0, "errors": 0, "tokens": 0}
+    stats = {"done": 0, "errors": 0, "tokens": 0, "src": 0, "out_comparable": 0}
 
     def progress(event):
         stats["done"] += 1
@@ -145,6 +145,9 @@ def main(argv=None) -> int:
             stats["errors"] += 1
         else:
             stats["tokens"] += event["tokens"]
+            if event.get("source_tokens"):
+                stats["src"] += event["source_tokens"]
+                stats["out_comparable"] += event["tokens"]
         if args.json:
             emit({"event": "file", **event})
         elif event["status"] == "error":
@@ -199,11 +202,13 @@ def main(argv=None) -> int:
             print(f"docprep-core: combine failed: {e}", file=sys.stderr)
 
     elapsed = round(time.time() - started, 2)
+    saved = max(0, stats["src"] - stats["out_comparable"])
     summary = {
         "event": "summary",
         "converted": stats["done"] - stats["errors"],
         "failed": stats["errors"],
         "tokens": total_tokens,
+        "saved_vs_raw": saved,
         "elapsed": elapsed,
         "cancelled": _cancelled,
         "combined": combined_path,
@@ -214,6 +219,8 @@ def main(argv=None) -> int:
     else:
         status = "Cancelled" if _cancelled else "Done"
         line = f"{status}: {summary['converted']} converted, {summary['failed']} failed, ~{total_tokens:,} tokens in {elapsed}s"
+        if saved:
+            line += f" (~{saved:,} tokens saved vs raw source)"
         print(line, flush=True)
 
     if _cancelled:

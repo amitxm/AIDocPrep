@@ -69,6 +69,9 @@ class QueueItem:
         self.processed = 0
         self.errors = 0
         self.tokens = 0
+        # Savings vs raw source, over files where a baseline exists
+        self.src_tokens = 0
+        self.out_comparable = 0
         self.row = None
         self.meta_label = None
         self.status_label = None
@@ -642,6 +645,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             item.processed = 0
             item.errors = 0
             item.tokens = 0
+            item.src_tokens = 0
+            item.out_comparable = 0
             if item.status_label is not None:
                 item.status_label.configure(text="queued", text_color="gray")
         self.apply_state()
@@ -665,7 +670,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             item.status_label.configure(
                 text=f"✓ ~{item.tokens:,} tokens · {item.errors} failed", text_color=self.error_color)
         else:
-            item.status_label.configure(text=f"✓ ~{item.tokens:,} tokens", text_color=self.success_color)
+            text = f"✓ ~{item.tokens:,} tokens"
+            if item.src_tokens > item.out_comparable > 0:
+                pct = round(100 * (1 - item.out_comparable / item.src_tokens))
+                if pct > 0:
+                    text += f" (−{pct}%)"
+            item.status_label.configure(text=text, text_color=self.success_color)
 
     def _conversion_task(self):
         s = dict(self.settings)
@@ -681,7 +691,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Tallied here on the worker thread; item state only mirrors this for
         # display and may lag behind (row updates go through the UI queue).
-        stats = {"done": 0, "errors": 0, "tokens": 0}
+        stats = {"done": 0, "errors": 0, "tokens": 0, "src": 0, "out_comparable": 0}
 
         def progress(event):
             stats["done"] += 1
@@ -689,6 +699,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 stats["errors"] += 1
             else:
                 stats["tokens"] += event["tokens"]
+                if event.get("source_tokens"):
+                    stats["src"] += event["source_tokens"]
+                    stats["out_comparable"] += event["tokens"]
             item = owner.get(event["file"])
 
             def apply():
@@ -698,6 +711,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                         item.errors += 1
                     else:
                         item.tokens += event["tokens"]
+                        if event.get("source_tokens"):
+                            item.src_tokens += event["source_tokens"]
+                            item.out_comparable += event["tokens"]
                     self.update_item_row(item)
                 self.progress_bar.set(event["done"] / max(1, event["total"]))
                 self.footer_label.configure(
@@ -775,6 +791,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 colors = (("#FDF0DB", "#3B2E14"), ("#92400E", "#F5C544"))
             else:
                 text = f"✓  {n_done} file{'s' if n_done != 1 else ''} converted in {elapsed_text} · ~{total_tokens:,} tokens total"
+                saved = stats["src"] - stats["out_comparable"]
+                if saved > 0:
+                    text += f" · ~{saved:,} saved vs raw"
                 colors = (("#DFF2E1", "#173B23"), self.success_color)
             self.summary_banner.configure(text=text, fg_color=colors[0], text_color=colors[1])
             self.footer_label.configure(text=self.result_dir or "")
