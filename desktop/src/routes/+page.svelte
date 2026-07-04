@@ -149,7 +149,7 @@
   }
 
   function buildArgs() {
-    const args = [...items.map((i) => i.path), "--json", "--output", s.outputMode, "--conflict", s.conflict];
+    const args = [...items.map((i) => i.path), "--json", "--watchdog", "--output", s.outputMode, "--conflict", s.conflict];
     if (!s.yaml) args.push("--no-yaml");
     if (!s.toc) args.push("--no-toc");
     if (s.redact) {
@@ -173,6 +173,9 @@
       i.errors = 0;
     }
 
+    progress = { done: 0, total: totalFiles, current: "starting up…" };
+    let stderrTail = "";
+
     const cmd = Command.sidecar("binaries/docprep-core", buildArgs());
     cmd.stdout.on("data", (line) => {
       let ev;
@@ -181,7 +184,9 @@
       } catch {
         return;
       }
-      if (ev.event === "file") {
+      if (ev.event === "start") {
+        progress = { done: 0, total: ev.total, current: "converting…" };
+      } else if (ev.event === "file") {
         progress = { done: ev.done, total: ev.total, current: baseName(ev.file) };
         const it = ownerOf(ev.file);
         if (it) {
@@ -194,15 +199,30 @@
         revealTarget = ev.combined || (ev.outputs?.length ? ev.outputs[0] : "");
       }
     });
-    cmd.on("close", () => {
+    cmd.stderr.on("data", (line) => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.includes("RuntimeWarning") && !trimmed.startsWith("warn(")) stderrTail = trimmed;
+      console.warn("[docprep-core]", line);
+    });
+    const finish = () => {
+      if (!summary) {
+        // Process died or was cancelled before its summary arrived
+        summary = {
+          cancelled: true,
+          converted: items.reduce((n, i) => n + i.done - i.errors, 0),
+          failed: items.reduce((n, i) => n + i.errors, 0),
+          tokens: 0,
+          elapsed: 0,
+          outputs: [],
+        };
+      }
+      if ((summary.failed > 0 || summary.cancelled) && stderrTail) footerMsg = stderrTail;
       state = "done";
       child = null;
-      if (s.revealWhenDone && revealTarget && summary && !summary.cancelled) showInFolder();
-    });
-    cmd.on("error", () => {
-      state = "done";
-      child = null;
-    });
+      if (s.revealWhenDone && revealTarget && !summary.cancelled) showInFolder();
+    };
+    cmd.on("close", finish);
+    cmd.on("error", finish);
     child = await cmd.spawn();
   }
 

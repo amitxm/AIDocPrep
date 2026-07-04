@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import datetime
 import threading
 import concurrent.futures
@@ -23,6 +24,24 @@ _thread_local = threading.local()
 _spacy_lock = threading.Lock()
 _ollama_lock = threading.Lock()
 _nlp = None
+_ollama_unreachable = False
+
+OLLAMA_URL = "http://localhost:11434"
+
+
+def _ollama_available() -> bool:
+    """Fast one-time reachability check so an absent Ollama server costs 2s
+    once per run instead of a long timeout per file."""
+    global _ollama_unreachable
+    if _ollama_unreachable:
+        return False
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_URL}/api/tags", timeout=2.0):
+            return True
+    except Exception:
+        _ollama_unreachable = True
+        print("Ollama not reachable at localhost:11434 — skipping LLM redaction (regex patterns still applied).", file=sys.stderr)
+        return False
 
 
 def _get_markitdown() -> MarkItDown:
@@ -221,10 +240,10 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
                     redacted_chunks.append("".join(chunk_chars))
                 text = "".join(redacted_chunks)
         except Exception as e:
-            print(f"Error running local spaCy NER: {e}")
+            print(f"Error running local spaCy NER: {e}", file=sys.stderr)
 
     # ------------------ Local LLM (Ollama) -----------------
-    elif mode == "Local LLM (Ollama)":
+    elif mode == "Local LLM (Ollama)" and _ollama_available():
         try:
             # Chunk to stay within model context window limits (~4000 chars per request)
             chunk_size = 4000
@@ -254,7 +273,7 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
                         redacted_chunks.append(chunk)
                         continue
 
-                    url = "http://localhost:11434/api/generate"
+                    url = f"{OLLAMA_URL}/api/generate"
                     prompt = f"{base_prompt}\n\nText:\n{chunk}"
 
                     payload = {
@@ -281,7 +300,7 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
                             redacted_chunks.append(chunk)
                 text = "\n".join(redacted_chunks)
         except Exception as e:
-            print(f"Error running Ollama redaction: {e}")
+            print(f"Error running Ollama redaction: {e}", file=sys.stderr)
 
     return text
 

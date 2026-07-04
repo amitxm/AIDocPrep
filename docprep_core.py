@@ -65,6 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--terms-file", default=None, metavar="PATH",
                    help="file with custom terms to redact, one per line")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
+    p.add_argument("--watchdog", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--quiet", action="store_true", help="only print the final summary (human mode)")
     p.add_argument("--version", action="version", version=f"docprep-core {VERSION}")
     return p
@@ -134,6 +135,23 @@ def main(argv=None) -> int:
             custom_terms = f.read()
 
     signal.signal(signal.SIGINT, _handle_sigint)
+
+    if args.watchdog:
+        # GUI shells pass --watchdog: exit when stdin reaches EOF. On Windows,
+        # killing the PyInstaller onefile bootloader orphans this process; the
+        # shell dropping its pipe handles is the reliable death signal.
+        import threading
+
+        def _watch_stdin():
+            try:
+                while sys.stdin.buffer.read(4096):
+                    pass
+            except Exception:
+                pass
+            os._exit(130)
+
+        threading.Thread(target=_watch_stdin, daemon=True).start()
+
     started = time.time()
 
     if args.json:

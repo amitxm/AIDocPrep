@@ -11,8 +11,10 @@ Set-Location (Join-Path $PSScriptRoot "..")
   --exclude-module matplotlib --exclude-module scipy --exclude-module IPython `
   docprep_core.py
 
-$triple = (& "$env:USERPROFILE\.cargo\bin\rustc.exe" -vV | Select-String "host: (.+)").Matches[0].Groups[1].Value
-$target = "desktop\src-tauri\binaries\docprep-core-$triple.exe"
+$triple = (& "$env:USERPROFILE\.cargo\bin\rustc.exe" -vV | Select-String "host: (.+)").Matches[0].Groups[1].Value.Trim()
+$newName = "docprep-core-$triple.exe"
+$target = "desktop\src-tauri\binaries\$newName"
 if (Test-Path $target) { Remove-Item $target -Force }
-Rename-Item desktop\src-tauri\binaries\docprep-core.exe $target
+# Rename-Item requires a leaf name, not a path, for -NewName
+Rename-Item -Path "desktop\src-tauri\binaries\docprep-core.exe" -NewName $newName
 Write-Host "Sidecar built: $target"
