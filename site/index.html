@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DocPrep — clean, private Markdown from any document</title>
+<meta name="description" content="Convert PDFs, Word docs, decks, and spreadsheets into clean Markdown and redact the private parts — entirely on your computer. Open source, 100% offline.">
+<link rel="canonical" href="https://aidocprep.app/">
+<link rel="icon" type="image/png" href="/icon.png">
+<meta name="theme-color" content="#FBFBF8">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aidocprep.app/">
+<meta property="og:title" content="AI DocPrep — clean, private Markdown from any document">
+<meta property="og:description" content="Get your documents ready for AI without handing them over. Convert and redact locally — nothing gets uploaded.">
+<meta property="og:image" content="https://aidocprep.app/icon.png">
+<meta name="twitter:card" content="summary">
+<style>
+  :root{
+    --paper:#FBFBF8; --panel:#F2F1EC; --ink:#17160F; --mut:#6C6A5F;
+    --line:#E4E3DA; --line-strong:#C9C8BC; --hl:#FFE23B;
+    --font-display:"Avenir Next","Avenir","Segoe UI Variable Display","Segoe UI",-apple-system,system-ui,sans-serif;
+    --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,Roboto,sans-serif;
+    --font-mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,"Liberation Mono",monospace;
+    --wrap:1100px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-body);
+    font-size:17px;line-height:1.62;border-top:5px solid var(--ink);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  ::selection{background:var(--hl);color:var(--ink);}
+  h1,h2,h3{font-family:var(--font-display);font-weight:700;line-height:1.08;letter-spacing:-0.022em;text-wrap:balance;margin:0;}
+  h2{font-size:clamp(1.65rem,3.3vw,2.4rem);}
+  h3{font-size:1.16rem;line-height:1.3;letter-spacing:-0.01em;}
+  p{margin:0;}
+  a{color:var(--ink);text-decoration:none;}
+  :focus-visible{outline:2.5px solid var(--ink);outline-offset:3px;}
+  mark{background:var(--hl);color:var(--ink);padding:0 5px;box-decoration-break:clone;-webkit-box-decoration-break:clone;}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 28px;}
+  .tag{font-family:var(--font-mono);font-size:0.72rem;letter-spacing:0.14em;color:var(--mut);
+    display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;}
+  .tag::before{content:"";width:9px;height:9px;background:var(--hl);border:1px solid var(--ink);display:inline-block;}
+  .lede{color:var(--mut);font-size:1.05rem;max-width:62ch;}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+  section{padding:clamp(54px,8vw,100px) 0;}
+  .rule{height:1px;background:var(--line);max-width:calc(var(--wrap) - 56px);margin:0 auto;}
+
+  .bar{display:inline-block;background:var(--ink);color:var(--paper);font-family:var(--font-mono);
+    font-size:0.85em;padding:1px 8px;border-radius:2px;letter-spacing:0.04em;}
+
+  header.nav{position:sticky;top:0;z-index:20;background:rgba(251,251,248,.9);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .nav-in{display:flex;align-items:center;gap:26px;height:62px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:800;
+    font-size:1.22rem;letter-spacing:-0.02em;}
+  .brand svg{display:block;}
+  .nav-links{margin-left:auto;display:flex;gap:26px;align-items:center;}
+  .nav-links a{color:var(--mut);font-size:0.92rem;font-weight:500;}
+  .nav-links a:hover{color:var(--ink);}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-size:0.95rem;
+    font-weight:600;padding:12px 20px;border-radius:6px;border:1.5px solid var(--ink);cursor:pointer;
+    transition:transform .1s ease, background .15s ease, color .15s ease;text-decoration:none;}
+  .btn-ink{background:var(--ink);color:var(--paper);}
+  .btn-ink:hover{background:#000;transform:translateY(-1px);color:var(--paper);}
+  .btn-ghost{background:transparent;color:var(--ink);}
+  .btn-ghost:hover{background:var(--panel);}
+  .nav .btn{padding:9px 16px;}
+
+  .hero{padding-top:clamp(44px,6vw,76px);}
+  .hero-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:56px;align-items:center;}
+  .hero h1{font-size:clamp(2.3rem,5vw,3.6rem);margin:18px 0 0;}
+  .hero .lede{margin-top:22px;font-size:1.14rem;line-height:1.55;}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:30px;}
+  .hero-note{margin-top:20px;font-size:0.82rem;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap;font-family:var(--font-mono);}
+
+  .machine{background:#fff;border:1.5px dashed var(--line-strong);border-radius:10px;
+    padding:22px 22px 18px;position:relative;box-shadow:8px 8px 0 var(--panel);}
+  .machine-tag{position:absolute;top:-10px;left:20px;background:var(--paper);padding:0 10px;
+    font-family:var(--font-mono);font-size:0.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);}
+  .machine-tag b{color:var(--ink);}
+  .flow{display:flex;flex-direction:column;gap:12px;}
+  .filecard{border:1px solid var(--line);border-radius:7px;padding:14px 15px;background:#fff;}
+  .filecard.raw{background:#FAF8F2;}
+  .filecard.clean{border-color:var(--ink);}
+  .filecard .fname{font-family:var(--font-mono);font-size:0.9rem;display:flex;justify-content:space-between;gap:12px;align-items:baseline;}
+  .filecard .snippet{font-family:var(--font-mono);font-size:0.76rem;line-height:1.75;color:var(--mut);margin-top:9px;white-space:pre-wrap;}
+  .filecard .snippet .pii{background:var(--hl);color:var(--ink);padding:0 3px;}
+  .filecard .snippet .bar{font-size:0.72rem;}
+  .tok{font-family:var(--font-mono);font-size:0.76rem;color:var(--mut);}
+  .tok b{color:var(--ink);}
+  .flow-mid{display:flex;align-items:center;gap:12px;padding-left:4px;}
+  .flow-mid .arrow{font-size:1.05rem;}
+  .flow-mid .lab{font-size:0.78rem;color:var(--mut);font-family:var(--font-mono);}
+  .savepill{margin-left:auto;font-family:var(--font-mono);font-size:0.74rem;font-weight:700;
+    color:var(--ink);background:var(--hl);padding:3px 10px;border-radius:2px;}
+  .netcut{margin-top:14px;display:flex;align-items:center;gap:8px;font-size:0.78rem;color:var(--mut);
+    border-top:1px dashed var(--line-strong);padding-top:12px;font-family:var(--font-mono);}
+
+  .band{background:var(--ink);color:#EDECE4;}
+  .band .wrap{padding-top:clamp(46px,6vw,70px);padding-bottom:clamp(46px,6vw,70px);}
+  .band h2{color:#fff;font-size:clamp(1.5rem,3vw,2.2rem);max-width:24ch;}
+  .band p{color:#B7B5A6;margin-top:16px;max-width:58ch;font-size:1.04rem;}
+  .band .tag{color:#8B897B;}
+  .band .tag::before{border-color:#fff;}
+
+  .quad{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:44px;
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--line);}
+  .bcard{background:#fff;padding:24px 22px;}
+  .bcard .k{font-family:var(--font-mono);font-size:0.72rem;color:var(--mut);letter-spacing:.1em;}
+  .bcard h3{margin:10px 0 8px;}
+  .bcard p{color:var(--mut);font-size:0.92rem;line-height:1.55;}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:44px;}
+  .step{padding-top:18px;border-top:2px solid var(--ink);}
+  .step .n{font-family:var(--font-mono);font-size:0.78rem;font-weight:600;letter-spacing:.08em;}
+  .step h3{margin:10px 0 8px;}
+  .step p{color:var(--mut);font-size:0.95rem;}
+
+  .cases{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden;margin-top:44px;}
+  .case{background:#fff;display:grid;grid-template-columns:210px 1fr;gap:28px;padding:30px;align-items:start;}
+  .case .who{font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);}
+  .case .who .whoname{display:block;font-family:var(--font-display);font-size:1.16rem;letter-spacing:-0.01em;
+    text-transform:none;color:var(--ink);margin-top:8px;font-weight:700;}
+  .case h3{font-size:1.22rem;margin-bottom:9px;}
+  .case p{color:var(--mut);max-width:64ch;}
+  .case .tags{margin-top:13px;display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{font-size:0.74rem;font-family:var(--font-mono);color:var(--ink);background:var(--panel);
+    padding:3px 10px;border-radius:2px;}
+
+  .proof{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:40px;}
+  .pcard{border:1.5px solid var(--ink);border-radius:10px;padding:28px;background:#fff;box-shadow:6px 6px 0 var(--panel);}
+  .pcard p{color:var(--mut);margin-top:12px;font-size:0.97rem;}
+  .pcard .codeline{font-family:var(--font-mono);font-size:0.8rem;margin-top:18px;
+    background:var(--ink);color:#EDECE4;border-radius:4px;padding:11px 13px;overflow-x:auto;}
+  .pcard .codeline em{color:var(--hl);font-style:normal;}
+
+  .demo{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center;}
+  .demo .txt h2{margin:14px 0 14px;}
+  .demo .txt p{color:var(--mut);}
+  .demo .txt ul{margin:20px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+  .demo .txt li{display:flex;gap:11px;align-items:flex-start;font-size:0.95rem;}
+  .tick{flex:none;margin-top:7px;width:8px;height:8px;background:var(--hl);border:1px solid var(--ink);display:inline-block;}
+  .codeblock{background:var(--ink);border-radius:8px;padding:22px;overflow-x:auto;box-shadow:8px 8px 0 var(--panel);}
+  .codeblock pre{margin:0;font-family:var(--font-mono);font-size:0.82rem;line-height:1.7;color:#C9C7B8;white-space:pre;}
+  .codeblock .w{color:#F4F3EA;}
+  .codeblock .y{color:var(--hl);}
+  .codeblock .m{color:#807E6E;}
+  .savings-figure{display:flex;align-items:baseline;gap:16px;margin-top:24px;}
+  .savings-figure .big{font-family:var(--font-display);font-weight:800;font-size:3.2rem;line-height:1;letter-spacing:-0.03em;}
+  .savings-figure .cap{color:var(--mut);font-size:0.92rem;max-width:26ch;}
+
+  .formats{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;}
+  .fmt{font-family:var(--font-mono);font-size:0.85rem;border:1px solid var(--ink);
+    border-radius:4px;padding:8px 14px;background:#fff;}
+  .fmt span{color:var(--mut);}
+
+  .price-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:42px;}
+  .plan{border:1px solid var(--line-strong);border-radius:10px;padding:30px;background:#fff;display:flex;flex-direction:column;}
+  .plan.feature{border:2px solid var(--ink);box-shadow:8px 8px 0 var(--hl);}
+  .plan .kind{font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:.13em;color:var(--mut);}
+  .plan .amount{font-family:var(--font-display);font-weight:800;font-size:2.5rem;margin:12px 0 2px;letter-spacing:-0.02em;}
+  .plan .amount small{font-size:1rem;color:var(--mut);font-family:var(--font-body);font-weight:500;}
+  .plan .desc{color:var(--mut);font-size:0.95rem;margin-bottom:20px;}
+  .plan ul{list-style:none;padding:0;margin:0 0 26px;display:flex;flex-direction:column;gap:11px;}
+  .plan li{display:flex;gap:10px;font-size:0.94rem;align-items:flex-start;}
+  .plan .btn{margin-top:auto;justify-content:center;}
+  .plan .fineprint{font-size:0.8rem;color:var(--mut);margin-top:14px;text-align:center;}
+
+  .faq{display:flex;flex-direction:column;margin-top:36px;border-top:1.5px solid var(--ink);}
+  details{border-bottom:1px solid var(--line);}
+  summary{cursor:pointer;list-style:none;padding:20px 2px;font-family:var(--font-display);font-weight:700;
+    font-size:1.1rem;display:flex;justify-content:space-between;gap:16px;align-items:center;letter-spacing:-0.01em;}
+  summary::-webkit-details-marker{display:none;}
+  summary .plus{font-family:var(--font-mono);font-size:1.15rem;transition:transform .18s ease;flex:none;}
+  details[open] summary .plus{transform:rotate(45deg);}
+  details p{color:var(--mut);padding:0 2px 22px;max-width:70ch;font-size:0.97rem;}
+
+  footer{background:var(--ink);color:#B7B5A6;padding:56px 0 40px;}
+  footer .foot-top{display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap;align-items:flex-start;}
+  footer .brand{color:#fff;}
+  footer .tagline{max-width:36ch;margin-top:12px;color:#8B897B;font-size:0.95rem;}
+  footer .cols{display:flex;gap:56px;flex-wrap:wrap;}
+  footer .col h4{font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:.14em;color:#807E6E;margin:0 0 12px;font-weight:600;}
+  footer .col a{display:block;color:#B7B5A6;font-size:0.92rem;margin-bottom:9px;}
+  footer .col a:hover{color:#fff;}
+  footer .foot-bottom{margin-top:44px;padding-top:22px;border-top:1px solid rgba(255,255,255,.14);
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:0.8rem;color:#807E6E;font-family:var(--font-mono);}
+
+  .reveal{opacity:0;transform:translateY(12px);transition:opacity .55s ease, transform .55s ease;}
+  .reveal.in{opacity:1;transform:none;}
+
+  @media (max-width:880px){
+    .hero-grid{grid-template-columns:1fr;gap:36px;}
+    .quad{grid-template-columns:1fr 1fr;}
+    .steps{grid-template-columns:1fr;gap:22px;}
+    .case{grid-template-columns:1fr;gap:12px;padding:24px;}
+    .proof,.demo,.price-grid{grid-template-columns:1fr;}
+    .nav-links a:not(.btn){display:none;}
+  }
+  @media (max-width:480px){ .quad{grid-template-columns:1fr;} body{font-size:16px;} }
+  @media (prefers-reduced-motion:reduce){
+    .reveal{opacity:1;transform:none;transition:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="AI DocPrep home">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="3" stroke="#17160F" stroke-width="1.6"/>
+        <path d="M5.5 6.5h11" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#17160F"/>
+        <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      AI DocPrep
+    </a>
+    <nav class="nav-links">
+      <a href="#uses">Use cases</a>
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a class="btn btn-ink" href="#pricing">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="tag">Local document toolkit · macOS &amp; Windows</span>
+        <h1>Get your documents ready for AI. <mark>Without handing them over.</mark></h1>
+        <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, and redacts the private parts. All of it happens on your computer. Nothing gets uploaded.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip">Download for Mac</a>
+          <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_Setup.exe">Download for Windows</a>
+        </div>
+        <div class="hero-note">
+          <span>open source</span>
+          <span>·</span>
+          <span>100% offline</span>
+          <span>·</span>
+          <span>free to build from source</span>
+        </div>
+      </div>
+
+      <div class="machine" aria-label="A document being converted and redacted entirely on your computer">
+        <span class="machine-tag">your computer · <b>offline</b></span>
+        <div class="flow">
+          <div class="filecard raw">
+            <div class="fname"><span>board-deck.pdf</span> <span class="tok"><b>18,412</b> tokens</span></div>
+            <div class="snippet">…&lt;/w:rPr&gt;&lt;w:t&gt; Q3 revenue&lt;/w:t&gt;
+contact <span class="pii">j.rivera@acme.com</span> · SSN <span class="pii">402-19-8823</span></div>
+          </div>
+          <div class="flow-mid">
+            <span class="arrow" aria-hidden="true">↓</span>
+            <span class="lab">converted + redacted here</span>
+            <span class="savepill">−83% tokens</span>
+          </div>
+          <div class="filecard clean">
+            <div class="fname"><span>board-deck.md</span> <span class="tok"><b>3,120</b> tokens</span></div>
+            <div class="snippet">## Q3 revenue
+contact <span class="bar">EMAIL</span> · SSN <span class="bar">SSN</span></div>
+          </div>
+        </div>
+        <div class="netcut">network requests during conversion: 0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-label="Why AI DocPrep exists">
+    <div class="wrap">
+      <span class="tag">the short version</span>
+      <h2 style="margin-top:14px;">Other “convert for AI” tools upload your file to their server first.</h2>
+      <p>AI DocPrep doesn't have a server. The work happens on your computer, which keeps the privacy question short. And since the code is open source, you can go read exactly what it does.</p>
+    </div>
+  </section>
+
+  <section id="what">
+    <div class="wrap">
+      <span class="tag reveal">what it does</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Convert, shrink, and scrub. One pass.</h2>
+      <div class="quad">
+        <div class="bcard reveal">
+          <span class="k">01</span>
+          <h3>Drag, drop, done</h3>
+          <p>Drop in files or whole folders, click once, get Markdown. That's the entire workflow.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">02</span>
+          <h3>Fully offline</h3>
+          <p>No account, no upload, no analytics. Works exactly the same with Wi‑Fi turned off.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">03</span>
+          <h3>Fewer tokens</h3>
+          <p>Office files carry invisible formatting bloat. AI DocPrep strips it, so models read more and you pay less.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">04</span>
+          <h3>Redaction built in</h3>
+          <p>Emails, SSNs, card numbers, names, API keys: removed before the text goes anywhere.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section id="how">
+    <div class="wrap">
+      <span class="tag reveal">how it works</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:26ch;">A messy folder in, clean Markdown out.</h2>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="n">STEP 01</div>
+          <h3>Drop your files</h3>
+          <p>Drag any mix of PDFs, Word docs, decks, spreadsheets, web pages, or transcripts onto the window. Folders welcome.</p>
+        </div>
+        <div class="step reveal">
+          <div class="n">STEP 02</div>
+          <h3>Convert &amp; redact</h3>
+          <p>AI DocPrep parses each file into clean Markdown and, if you want, removes personal details along the way. All on your own processor.</p>
+        </div>
+        <div class="step reveal">
+          <div class="n">STEP 03</div>
+          <h3>Use it anywhere</h3>
+          <p>Paste into ChatGPT or Claude, drop into your Obsidian vault, or keep the combined master file. It's plain Markdown.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="uses" style="background:var(--panel);">
+    <div class="wrap">
+      <span class="tag reveal">who uses it</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:24ch;">Four kinds of people, one habit: convert first.</h2>
+      <div class="cases">
+        <div class="case reveal">
+          <div class="who">Individuals<span class="whoname">Your private records</span></div>
+          <div>
+            <h3>Ask AI about your medical records. Keep your SSN out of it.</h3>
+            <p>Want a chatbot to explain a lab result or summarize a bank statement? AI DocPrep strips the account numbers, addresses, and IDs first, on your laptop, so you get the help without the exposure.</p>
+            <div class="tags"><span class="chip">medical</span><span class="chip">financial</span><span class="chip">tax</span></div>
+          </div>
+        </div>
+        <div class="case reveal">
+          <div class="who">Legal &amp; compliance<span class="whoname">Client-confidential work</span></div>
+          <div>
+            <h3>Use AI on client documents and keep your duty of confidentiality.</h3>
+            <p>Guidance like ABA Formal Opinion 512 expects lawyers to protect client data before it reaches an AI tool. AI DocPrep redacts privileged details locally. Files stay inside the firm, and no vendor logs a copy.</p>
+            <div class="tags"><span class="chip">ABA 512</span><span class="chip">privilege</span><span class="chip">runs on-prem</span></div>
+          </div>
+        </div>
+        <div class="case reveal">
+          <div class="who">AI power users<span class="whoname">Cheaper, sharper prompts</span></div>
+          <div>
+            <h3>Stop paying to send invisible XML to the model.</h3>
+            <p>Raw office files are stuffed with formatting metadata that burns tokens and muddies answers. Convert first and the same document costs a fraction of the context, with structure the model can actually follow.</p>
+            <div class="tags"><span class="chip">tokens</span><span class="chip">context window</span><span class="chip">RAG prep</span></div>
+          </div>
+        </div>
+        <div class="case reveal">
+          <div class="who">Obsidian &amp; PKM<span class="whoname">A cleaner knowledge base</span></div>
+          <div>
+            <h3>Turn a folder of documents into linkable Markdown notes.</h3>
+            <p>Bulk-convert PDFs and slides into tidy notes with YAML frontmatter and a generated table of contents. Ready for Obsidian, Notion, or Logseq, and much friendlier to your vault's search and AI plugins.</p>
+            <div class="tags"><span class="chip">frontmatter</span><span class="chip">table of contents</span><span class="chip">vault-ready</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap">
+      <span class="tag reveal">privacy</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:26ch;">It runs locally. The code is public. You can check both.</h2>
+      <div class="proof">
+        <div class="pcard reveal">
+          <h3>No server involved</h3>
+          <p>AI DocPrep makes zero network calls during conversion. No account, no sync, no telemetry. Turn off Wi‑Fi and run it on a plane; it behaves exactly the same. Your documents stay wherever they already live.</p>
+          <div class="codeline">$ network requests during conversion → <em>0</em></div>
+        </div>
+        <div class="pcard reveal">
+          <h3>Read the source</h3>
+          <p>The full code is public under the MIT license. You, your IT team, or anyone on the internet can read it, build it, and confirm what it does. A privacy page asks for trust. Source code settles it.</p>
+          <div class="codeline">$ license → <em>MIT</em> · every line on GitHub</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--panel);">
+    <div class="wrap demo">
+      <div class="txt reveal">
+        <span class="tag">tokens</span>
+        <h2>The same document, a fraction of the tokens.</h2>
+        <p>Upload a raw PDF and the model pays for every page image and layout artifact. Convert it first and you send only the words. More of your document fits in the context window, and it costs less to put it there.</p>
+        <div class="savings-figure">
+          <span class="big" data-count="88">88%</span>
+          <span class="cap">fewer tokens on a typical 40-page report, versus uploading it raw.</span>
+        </div>
+      </div>
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># the same 40-page report, two ways</span>
+
+board-report.pdf   <span class="w">~80,400 tokens</span>  <span class="m">(raw upload)</span>
+board-report.md    <span class="y">~9,500 tokens</span>   <span class="m">(after AI DocPrep)</span>
+
+<span class="m"># AI DocPrep shows the estimate for every file</span>
+<span class="w">✓ 14 files converted · ~48,200 tokens · <span class="y">−84% vs raw</span></span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap demo">
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># before — straight from the document</span>
+Patient: <span class="w">Maria Alvarez</span>
+Email:   <span class="w">m.alvarez@gmail.com</span>
+SSN:     <span class="w">402-19-8823</span>
+Card:    <span class="w">4111 1111 1111 1111</span>
+
+<span class="m"># after — redacted on this machine</span>
+Patient: <span class="y">[REDACTED_NAME]</span>
+Email:   <span class="y">[REDACTED_EMAIL]</span>
+SSN:     <span class="y">[REDACTED_SSN]</span>
+Card:    <span class="y">[REDACTED_CC]</span></pre>
+      </div>
+      <div class="txt reveal">
+        <span class="tag">redaction</span>
+        <h2>Scrub the private parts before anything reaches a chatbot.</h2>
+        <p>Three levels of thoroughness, all local:</p>
+        <ul>
+          <li><span class="tick"></span><span><b>Instant patterns.</b> Emails, phone numbers, SSNs, credit cards, API keys and secrets.</span></li>
+          <li><span class="tick"></span><span><b>On-device AI.</b> A bundled model catches names, organizations, and places.</span></li>
+          <li><span class="tick"></span><span><b>Local LLM.</b> The deepest, context-aware pass, through your own Ollama server.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0;">
+    <div class="wrap">
+      <div class="rule" style="margin-bottom:clamp(48px,7vw,88px);max-width:100%;"></div>
+      <span class="tag reveal">formats</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:24ch;">Built on Microsoft's MarkItDown engine.</h2>
+      <div class="formats">
+        <div class="fmt reveal">PDF <span>· reports, scans</span></div>
+        <div class="fmt reveal">DOCX <span>· Word</span></div>
+        <div class="fmt reveal">PPTX <span>· slides</span></div>
+        <div class="fmt reveal">XLSX <span>· spreadsheets</span></div>
+        <div class="fmt reveal">HTML <span>· web pages</span></div>
+        <div class="fmt reveal">VTT <span>· transcripts</span></div>
+      </div>
+      <p class="lede reveal" style="margin-top:22px;">Each format gets a purpose-built converter, so tables, slides, and spreadsheets survive the trip into Markdown.</p>
+    </div>
+  </section>
+
+  <section id="pricing" style="background:var(--ink);">
+    <div class="wrap">
+      <span class="tag" style="color:#8B897B;">pricing</span>
+      <h2 style="color:#fff;margin-top:14px;max-width:24ch;">Free if you build it. Pay what you want if you'd rather not.</h2>
+      <p style="color:#B7B5A6;margin-top:16px;max-width:58ch;">Same code either way. The paid download is the signed, ready-to-run build that installs in one click. It also keeps a solo developer shipping.</p>
+      <div class="price-grid">
+        <div class="plan">
+          <div class="kind">Build from source</div>
+          <div class="amount">Free</div>
+          <div class="desc">For tinkerers and teams who'd rather compile it themselves.</div>
+          <ul>
+            <li><span class="tick"></span> Full source under the MIT license</li>
+            <li><span class="tick"></span> The complete app and command-line tool</li>
+            <li><span class="tick"></span> No features held back</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">View the source ↗</a>
+        </div>
+        <div class="plan feature">
+          <div class="kind">The app</div>
+          <div class="amount">Pay what you want</div>
+          <div class="desc">Ready to run on macOS and Windows.</div>
+          <ul>
+            <li><span class="tick"></span> One-click install</li>
+            <li><span class="tick"></span> Right-click “Convert to Markdown” in Finder &amp; Explorer</li>
+            <li><span class="tick"></span> Priority fixes and support</li>
+          </ul>
+          <a class="btn btn-ink" href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Get it on Gumroad</a>
+          <p class="fineprint">Direct downloads on <a href="https://github.com/amitxm/AIDocPrep/releases/latest" rel="noopener" style="color:inherit;text-decoration:underline;">GitHub Releases</a> · coming to the Mac App Store and Microsoft Store</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <span class="tag reveal">questions</span>
+      <h2 class="reveal" style="margin-top:14px;">Fair things to ask before you trust it.</h2>
+      <div class="faq reveal">
+        <details open>
+          <summary>Why not just upload the file straight to ChatGPT? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>For a coffee-shop menu, go ahead. But a raw upload sends the whole file, private details included, to a vendor's servers, where it may be retained or used for training. It also wastes context on formatting the model ignores. AI DocPrep sends only clean text, and only the parts you choose to keep.</p>
+        </details>
+        <details>
+          <summary>Is it actually private? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>There's no server behind AI DocPrep and no account to sign in to. Conversion makes zero network requests; turn off Wi‑Fi and see for yourself. And because the code is public, your security team can read it instead of taking a policy page's word.</p>
+        </details>
+        <details>
+          <summary>Do I need a vector database or RAG setup? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>Usually no. Modern models hold hundreds of pages in context, so for personal and project-sized document sets, one clean Markdown file beats chunked retrieval, with zero infrastructure. If you do run RAG at scale, clean Markdown makes your chunks noticeably more accurate.</p>
+        </details>
+        <details>
+          <summary>Which formats and platforms are supported? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), HTML, and VTT transcripts today, on macOS and Windows. Conversion runs in parallel across your CPU, and Office temp files are skipped automatically.</p>
+        </details>
+        <details>
+          <summary>What happens to files I've already converted? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>Nothing you didn't ask for. AI DocPrep writes new Markdown next to your originals and keeps both by default, so it never overwrites your own notes. When combining a folder, it merges only the files it just converted; an existing Obsidian vault is never swept in.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <span class="brand">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="20" height="20" rx="3" stroke="#FBFBF8" stroke-width="1.6"/>
+            <path d="M5.5 6.5h11" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#FFE23B"/>
+            <path d="M5.5 15.5h7" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          AI DocPrep
+        </span>
+        <p class="tagline">For people who'd rather not upload their life to a chatbot.</p>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <h4>Product</h4>
+          <a href="#uses">Use cases</a>
+          <a href="#how">How it works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="col">
+          <h4>Open source</h4>
+          <a href="https://github.com/amitxm/AIDocPrep" rel="noopener">GitHub repository</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/LICENSE" rel="noopener">MIT license</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/docprep_core.py" rel="noopener">Command-line tool</a>
+        </div>
+        <div class="col">
+          <h4>Get it</h4>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip">macOS</a>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_Setup.exe">Windows</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 AI DocPrep · built on Microsoft's MarkItDown (MIT)</span>
+      <span>runs on your device · no tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revs = Array.prototype.slice.call(document.querySelectorAll(".reveal"));
+    if(reduce || !("IntersectionObserver" in window)){
+      revs.forEach(function(el){el.classList.add("in");});
+    } else {
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+      }, {threshold:0.14, rootMargin:"0px 0px -40px 0px"});
+      revs.forEach(function(el){io.observe(el);});
+    }
+    var counter = document.querySelector("[data-count]");
+    if(counter){
+      var target = parseInt(counter.getAttribute("data-count"),10);
+      if(reduce){ counter.textContent = target + "%"; }
+      else {
+        var seen = false;
+        var co = new IntersectionObserver(function(entries){
+          entries.forEach(function(e){
+            if(e.isIntersecting && !seen){
+              seen = true;
+              var n = 0, step = Math.max(1, Math.round(target/40));
+              var t = setInterval(function(){
+                n += step; if(n >= target){ n = target; clearInterval(t); }
+                counter.textContent = n + "%";
+              }, 22);
+            }
+          });
+        }, {threshold:0.6});
+        co.observe(counter);
+      }
+    }
+  })();
+</script>
+</body>
+</html>
