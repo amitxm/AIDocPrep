@@ -11,6 +11,19 @@
       "identifier": "opener:allow-reveal-item-in-dir",
       "allow": [{ "path": "**" }]
     },
+    "clipboard-manager:allow-write-text",
+    {
+      "identifier": "fs:allow-stat",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "**" }]
+    },
     {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "binaries/docprep-core", "sidecar": true, "args": true }]

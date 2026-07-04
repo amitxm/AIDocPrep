@@ -56,8 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--engine", choices=tuple(ENGINE_NAMES), default="regex",
                    help="redaction engine (default: regex)")
     p.add_argument("--ollama-model", default="llama3", metavar="MODEL")
+    p.add_argument("--prompt", default=None, metavar="TEXT",
+                   help="custom Ollama redaction prompt")
     p.add_argument("--prompt-file", default=None, metavar="PATH",
                    help="file containing a custom Ollama redaction prompt")
+    p.add_argument("--term", action="append", default=None, metavar="TERM",
+                   help="custom term to always redact (repeatable)")
     p.add_argument("--terms-file", default=None, metavar="PATH",
                    help="file with custom terms to redact, one per line")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
@@ -120,12 +124,12 @@ def main(argv=None) -> int:
         print("docprep-core: no supported files found", file=sys.stderr)
         return 2
 
-    custom_prompt = None
-    if args.prompt_file:
+    custom_prompt = args.prompt
+    if custom_prompt is None and args.prompt_file:
         with open(args.prompt_file, "r", encoding="utf-8") as f:
             custom_prompt = f.read()
-    custom_terms = None
-    if args.terms_file:
+    custom_terms = "\n".join(args.term) if args.term else None
+    if custom_terms is None and args.terms_file:
         with open(args.terms_file, "r", encoding="utf-8") as f:
             custom_terms = f.read()
 
