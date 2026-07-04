@@ -43,9 +43,10 @@
     return p.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
   }
   function dirName(p) {
+    const sep = p.includes("\\") ? "\\" : "/";
     const parts = p.replace(/[\\/]+$/, "").split(/[\\/]/);
     parts.pop();
-    return parts.join("\\");
+    return parts.join(sep);
   }
 
   function addPaths(paths) {
