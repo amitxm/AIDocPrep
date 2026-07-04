@@ -672,7 +672,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         else:
             text = f"✓ ~{item.tokens:,} tokens"
             if item.src_tokens > item.out_comparable > 0:
-                pct = round(100 * (1 - item.out_comparable / item.src_tokens))
+                pct = min(99, round(100 * (1 - item.out_comparable / item.src_tokens)))
                 if pct > 0:
                     text += f" (−{pct}%)"
             item.status_label.configure(text=text, text_color=self.success_color)
@@ -792,7 +792,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             else:
                 text = f"✓  {n_done} file{'s' if n_done != 1 else ''} converted in {elapsed_text} · ~{total_tokens:,} tokens total"
                 if stats["src"] > stats["out_comparable"] > 0:
-                    pct = round(100 * (1 - stats["out_comparable"] / stats["src"]))
+                    pct = min(99, round(100 * (1 - stats["out_comparable"] / stats["src"])))
                     if pct > 0:
                         text += f" · {pct}% saved vs raw"
                 colors = (("#DFF2E1", "#173B23"), self.success_color)

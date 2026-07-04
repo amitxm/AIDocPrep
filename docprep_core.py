@@ -209,6 +209,8 @@ def main(argv=None) -> int:
         "failed": stats["errors"],
         "tokens": total_tokens,
         "saved_vs_raw": saved,
+        "src_tokens": stats["src"],
+        "out_comparable": stats["out_comparable"],
         "elapsed": elapsed,
         "cancelled": _cancelled,
         "combined": combined_path,
@@ -220,7 +222,7 @@ def main(argv=None) -> int:
         status = "Cancelled" if _cancelled else "Done"
         line = f"{status}: {summary['converted']} converted, {summary['failed']} failed, ~{total_tokens:,} tokens in {elapsed}s"
         if stats["src"] > stats["out_comparable"] > 0:
-            pct = round(100 * (1 - stats["out_comparable"] / stats["src"]))
+            pct = min(99, round(100 * (1 - stats["out_comparable"] / stats["src"])))
             if pct > 0:
                 line += f" ({pct}% saved vs raw)"
         print(line, flush=True)

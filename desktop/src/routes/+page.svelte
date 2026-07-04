@@ -3,7 +3,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { open } from "@tauri-apps/plugin-dialog";
   import { Command } from "@tauri-apps/plugin-shell";
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
   const OUTPUT_MODES = [
     { value: "individual", label: "Individual .md files" },
@@ -17,7 +17,8 @@
   let redact = $state(localStorage.getItem("redact") === "1");
   let progress = $state({ done: 0, total: 0, current: "" });
   let summary = $state(null);
-  let resultDir = $state("");
+  let revealTarget = $state("");
+  let footerMsg = $state("");
   let child = null;
 
   $effect(() => {
@@ -25,11 +26,11 @@
     localStorage.setItem("redact", redact ? "1" : "0");
   });
 
-  const totalPct = $derived(
-    summary && summary.saved_vs_raw > 0 && summary.tokens > 0
-      ? Math.round((100 * summary.saved_vs_raw) / (summary.saved_vs_raw + summary.tokens))
-      : null
-  );
+  const totalPct = $derived.by(() => {
+    if (!summary || !(summary.src_tokens > summary.out_comparable) || !(summary.out_comparable > 0)) return null;
+    const pct = Math.min(99, Math.round(100 * (1 - summary.out_comparable / summary.src_tokens)));
+    return pct > 0 ? pct : null;
+  });
 
   onMount(() => {
     getCurrentWebview().onDragDropEvent((event) => {
@@ -123,7 +124,7 @@
         }
       } else if (ev.event === "summary") {
         summary = ev;
-        resultDir = ev.outputs?.length ? dirName(ev.outputs[0]) : "";
+        revealTarget = ev.combined || (ev.outputs?.length ? ev.outputs[0] : "");
       }
     });
     cmd.on("close", () => {
@@ -139,6 +140,15 @@
 
   function cancel() {
     child?.kill();
+  }
+
+  async function showInFolder() {
+    try {
+      footerMsg = "";
+      await revealItemInDir(revealTarget);
+    } catch (e) {
+      footerMsg = `Could not open folder: ${e}`;
+    }
   }
 </script>
 
@@ -212,12 +222,12 @@
       <button class="danger big" onclick={cancel}>Cancel</button>
     {:else if state === "done"}
       <div class="actions">
-        {#if resultDir}<button onclick={() => openPath(resultDir)}>Show in Folder</button>{/if}
+        {#if revealTarget}<button onclick={showInFolder}>Show in Folder</button>{/if}
         <button class="primary" onclick={reset}>New Conversion</button>
       </div>
     {/if}
   {/if}
-  <p class="footer offline">100% offline — files never leave this machine</p>
+  <p class="footer offline">{footerMsg || "100% offline — files never leave this machine"}</p>
 </main>
 
 <style>

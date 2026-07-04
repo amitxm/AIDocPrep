@@ -8,6 +8,10 @@
     "opener:default",
     "dialog:default",
     {
+      "identifier": "opener:allow-reveal-item-in-dir",
+      "allow": [{ "path": "**" }]
+    },
+    {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "binaries/docprep-core", "sidecar": true, "args": true }]
     },
