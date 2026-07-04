@@ -20,7 +20,7 @@
     conflict: "keep-both",
     yaml: true,
     toc: true,
-    engine: "regex", // "regex" | "ollama"  (on-device NER not bundled in the sidecar yet)
+    engine: "regex", // "regex" | "ner" | "ollama"
     ollamaModel: "llama3",
     customTerms: "",
     revealWhenDone: true,
@@ -351,6 +351,7 @@
 
         <p class="group">Redaction engine</p>
         <label class="row"><input type="radio" bind:group={s.engine} value="regex" /> Pattern matching <span class="hint">instant · emails, SSNs, cards, keys, IPs</span></label>
+        <label class="row"><input type="radio" bind:group={s.engine} value="ner" /> On-device AI <span class="hint">also catches names, orgs, locations · offline</span></label>
         <label class="row"><input type="radio" bind:group={s.engine} value="ollama" /> Local LLM <span class="hint">deepest · needs Ollama running</span></label>
         {#if s.engine === "ollama"}
           <label class="row indent">
