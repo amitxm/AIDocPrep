@@ -87,7 +87,7 @@ We recommend using the **Terminal Installer** for the smoothest experience, or d
 Copy and paste this command into your Terminal to download, extract, and install the app directly into your `/Applications` folder. Since it downloads via `curl`, it **automatically bypasses** macOS Gatekeeper quarantine blocks and "damaged app" warnings:
 
 ```bash
-curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/download/v1.1/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
+curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/download/v1.2.0/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
 ```
 
 *Once run, you can immediately launch **AI DocPrep** from your Applications folder or Spotlight.*
