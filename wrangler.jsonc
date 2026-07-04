@@ -1,0 +1,9 @@
+// Cloudflare Workers config: serves the static marketing site from site/.
+// No Worker script — assets-only deployment (the modern equivalent of Pages).
+{
+  "name": "aidocprep",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./site"
+  }
+}
