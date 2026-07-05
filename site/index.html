@@ -187,6 +187,9 @@
   footer .foot-bottom{margin-top:44px;padding-top:22px;border-top:1px solid rgba(255,255,255,.14);
     display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:0.8rem;color:#807E6E;font-family:var(--font-mono);}
 
+  .shot{margin:42px auto 0;max-width:680px;}
+  .shot img{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 42px rgba(0,0,0,0.34));}
+
   .reveal{opacity:0;transform:translateY(12px);transition:opacity .55s ease, transform .55s ease;}
   .reveal.in{opacity:1;transform:none;}
 
@@ -333,6 +336,17 @@ contact <span class="bar">EMAIL</span> · SSN <span class="bar">SSN</span></div>
           <p>Paste into ChatGPT or Claude, drop into your Obsidian vault, or keep the combined master file. It's plain Markdown.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section style="background:var(--ink);">
+    <div class="wrap" style="text-align:center;">
+      <span class="tag reveal" style="color:#8B897B;justify-content:center;">the actual app</span>
+      <h2 class="reveal" style="color:#fff;margin:14px auto 0;max-width:22ch;">No demo magic — this is one real run.</h2>
+      <p class="reveal" style="color:#B7B5A6;margin:14px auto 0;max-width:54ch;">Ten mixed documents — five decks, three PDFs, a spreadsheet, a doc — converted in 38 seconds, fully offline, with the token count and savings shown for every file.</p>
+      <figure class="shot reveal">
+        <img src="/screenshot.png" alt="AI DocPrep after converting a folder of ten documents, showing a per-file token count for each and 81% saved versus raw" />
+      </figure>
     </div>
   </section>
 

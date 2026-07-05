@@ -21,6 +21,10 @@
   <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
 </p>
 
+<p align="center">
+  <img src="site/screenshot.png" alt="AI DocPrep after converting a folder of ten mixed documents, showing a per-file token count for each and 81% saved versus raw" width="620"/>
+</p>
+
 ## Why clean your documents first?
 
 Office files are bloated with formatting metadata the model never needs. A `.docx` is a zip of XML several times the size of its actual text; a raw PDF upload is billed as extracted text *plus* a rendered image of every page. Converting to Markdown first means:
