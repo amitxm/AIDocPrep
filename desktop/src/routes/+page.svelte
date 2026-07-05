@@ -115,7 +115,7 @@
       } catch {
         continue;
       }
-      items.push({ path: p, name: baseName(p), isDir, count: isDir ? null : 1, done: 0, tokens: 0, errors: 0, src: 0, outCmp: 0 });
+      items.push({ path: p, name: baseName(p), isDir, count: isDir ? null : 1, done: 0, tokens: 0, errors: 0, src: 0, outCmp: 0, children: [] });
       if (isDir) {
         // Mutations must go through the $state proxy in the array — writing
         // to the raw pre-push object is invisible to Svelte's reactivity
@@ -185,6 +185,7 @@
       i.errors = 0;
       i.src = 0;
       i.outCmp = 0;
+      i.children = [];
     }
 
     progress = { done: 0, total: totalFiles, current: "starting up…" };
@@ -202,6 +203,11 @@
         progress = { done: 0, total: ev.total, current: "converting…" };
       } else if (ev.event === "file" && ev.status === "started") {
         progress = { ...progress, total: ev.total, current: baseName(ev.file) + "…" };
+        const it = ownerOf(ev.file);
+        if (it?.isDir) {
+          // Folder rows expand into live per-file rows as work happens
+          it.children.push({ path: ev.file, name: baseName(ev.file), status: "converting", tokens: 0, error: null });
+        }
       } else if (ev.event === "file") {
         progress = { done: ev.done, total: ev.total, current: baseName(ev.file) };
         const it = ownerOf(ev.file);
@@ -213,6 +219,14 @@
             if (ev.source_tokens) {
               it.src += ev.source_tokens;
               it.outCmp += ev.tokens;
+            }
+          }
+          if (it.isDir) {
+            const c = it.children.find((x) => x.path === ev.file);
+            if (c) {
+              c.status = ev.status === "error" ? "error" : "done";
+              c.tokens = ev.tokens;
+              c.error = ev.error;
             }
           }
         }
@@ -348,6 +362,18 @@
           {#if item.errors}<span class="fail mono">{item.errors} failed</span>{/if}
           {#if state === "staged"}<button class="x" onclick={() => removeItem(item)}>&#10005;</button>{/if}
         </li>
+        {#each item.children as c}
+          <li class="child">
+            <span class="childname">{c.name}</span>
+            {#if c.status === "converting"}
+              <span class="meta mono">converting…</span>
+            {:else if c.status === "error"}
+              <span class="fail mono" title={c.error}>{(c.error || "failed").slice(0, 48)}</span>
+            {:else}
+              <span class="status mono">~{c.tokens.toLocaleString()} tok</span>
+            {/if}
+          </li>
+        {/each}
       {/each}
     </ul>
 
@@ -454,7 +480,7 @@
     background: var(--paper);
     border: 1.5px dashed var(--line-strong);
     border-radius: 4px;
-    box-shadow: 8px 8px 0 var(--panel);
+    box-shadow: 8px 8px 0 var(--line);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -463,7 +489,7 @@
     padding: 40px 20px;
     margin-bottom: 10px;
   }
-  .arrow { font-size: 34px; color: var(--mut); }
+  .arrow { font-size: 46px; line-height: 1; color: var(--ink); }
   h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.022em; font-size: 19px; margin: 10px 0 3px; }
   h3 { font-family: var(--font-display); font-weight: 700; font-size: 16px; margin: 0; }
   .sub { color: var(--mut); font-size: 13px; margin: 0 0 18px; }
@@ -496,7 +522,7 @@
     gap: 10px;
     background: var(--paper);
     border: 1px solid var(--line-strong);
-    box-shadow: 4px 4px 0 var(--panel);
+    box-shadow: 6px 6px 0 var(--line);
     color: var(--ink);
     font-weight: 600;
     font-size: 13px;
@@ -515,11 +541,14 @@
     background: var(--paper);
     border: 1px solid var(--line-strong);
     border-radius: 4px;
-    box-shadow: 6px 6px 0 var(--panel);
+    box-shadow: 6px 6px 0 var(--line);
     overflow-y: auto;
   }
   .queue li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
   .queue li:last-child { border-bottom: none; }
+  .queue li.child { padding: 5px 12px 5px 34px; font-size: 12px; border-bottom: none; color: var(--mut); position: relative; }
+  .queue li.child::before { content: ""; position: absolute; left: 22px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .childname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .badge { font-size: 9px; letter-spacing: 0.08em; border: 1px solid var(--line-strong); color: var(--mut); border-radius: 2px; padding: 2px 6px; min-width: 42px; text-align: center; }
   .name { flex: 1; }
   .meta { color: var(--mut); font-size: 12px; }
@@ -529,6 +558,16 @@
   .redact { display: flex; align-items: center; gap: 7px; border: 1px solid transparent; border-radius: 2px; padding: 4px 10px; }
   .redact.active { background: var(--hl); border-color: var(--ink); font-weight: 600; }
   select, input[type="text"], textarea { font-family: var(--font-body); font-size: 13px; padding: 5px 8px; border-radius: 2px; border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink); }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border: 1.5px solid var(--ink);
+    padding: 6px 28px 6px 10px;
+    background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2317160F' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 9px center;
+  }
+  select:disabled { border-color: var(--line-strong); color: var(--mut); }
   input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   .actions { display: flex; gap: 8px; margin-top: 10px; justify-content: space-between; }
   .actions span { display: flex; gap: 8px; }
