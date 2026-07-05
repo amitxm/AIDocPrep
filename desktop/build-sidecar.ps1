@@ -9,6 +9,7 @@ Set-Location (Join-Path $PSScriptRoot "..")
   --collect-all spacy --collect-all en_core_web_sm `
   --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter `
   --exclude-module matplotlib --exclude-module scipy --exclude-module IPython `
+  --exclude-module speech_recognition --exclude-module pydub --exclude-module pocketsphinx `
   docprep_core.py
 
 $triple = (& "$env:USERPROFILE\.cargo\bin\rustc.exe" -vV | Select-String "host: (.+)").Matches[0].Groups[1].Value.Trim()

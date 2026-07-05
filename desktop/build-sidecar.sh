@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
   --collect-all spacy --collect-all en_core_web_sm \
   --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter \
   --exclude-module matplotlib --exclude-module scipy --exclude-module IPython \
+  --exclude-module speech_recognition --exclude-module pydub --exclude-module pocketsphinx \
   docprep_core.py
 
 TRIPLE=$(rustc -vV | sed -n 's/host: //p')
