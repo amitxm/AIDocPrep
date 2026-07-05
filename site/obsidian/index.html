@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DocPrep for Obsidian — turn documents into Markdown notes</title>
+<meta name="description" content="Bulk-convert PDFs, Word docs, and slides into clean Markdown notes with YAML frontmatter and a generated table of contents. Ready for Obsidian, Notion, or Logseq — and your existing notes are never touched.">
+<link rel="canonical" href="https://aidocprep.app/obsidian/">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<meta name="theme-color" content="#FBFBF8">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aidocprep.app/obsidian/">
+<meta property="og:title" content="AI DocPrep for Obsidian — turn documents into Markdown notes">
+<meta property="og:description" content="Bulk-convert PDFs and slides into clean Markdown notes with frontmatter and a table of contents. Your vault stays untouched.">
+<meta property="og:image" content="https://aidocprep.app/icon.png">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="AI DocPrep home">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="3" stroke="#17160F" stroke-width="1.6"/>
+        <path d="M5.5 6.5h11" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#17160F"/>
+        <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      AI DocPrep
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="btn btn-ink" href="/#pricing">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="crumb"><a href="/">AI DocPrep</a> / for Obsidian &amp; PKM</p>
+        <h1 style="margin-top:14px;">Turn a folder of documents into <mark>linkable Markdown notes.</mark></h1>
+        <p class="lede">Bulk-convert PDFs, Word docs, and slides into tidy notes with YAML frontmatter and a generated table of contents — ready for Obsidian, Notion, or Logseq. Your existing notes are never swept in or overwritten.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink" href="/#pricing">Download for Mac &amp; Windows</a>
+          <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
+        </div>
+        <div class="hero-note">
+          <span>YAML frontmatter</span><span>·</span><span>generated TOC</span><span>·</span><span>vault-safe</span>
+        </div>
+      </div>
+
+      <div class="machine" aria-label="A PDF converted into a Markdown note with frontmatter, on your computer">
+        <span class="machine-tag">your vault · <b>offline</b></span>
+        <div class="flow">
+          <div class="filecard raw">
+            <div class="fname"><span>research-paper.pdf</span></div>
+            <div class="snippet">%PDF-1.7  4 0 obj &lt;&lt; /Length 5 0 R
+/Filter /FlateDecode &gt;&gt; stream …</div>
+          </div>
+          <div class="flow-mid">
+            <span class="arrow" aria-hidden="true">↓</span>
+            <span class="lab">converted on this machine</span>
+          </div>
+          <div class="filecard clean">
+            <div class="fname"><span>research-paper.md</span></div>
+            <div class="snippet"><span class="bar" style="background:#3b3a2f;color:#EDECE4;">---</span>
+source_format: .pdf
+date_converted: 2026-07-05
+<span class="bar" style="background:#3b3a2f;color:#EDECE4;">---</span>
+# Research Paper</div>
+          </div>
+        </div>
+        <div class="netcut">internet requests during conversion: 0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <span class="tag">the short version</span>
+      <h2 style="margin-top:14px;">It writes into your vault without stepping on it.</h2>
+      <p>New Markdown lands next to the originals; your hand-written notes are never overwritten. When it combines a folder, it merges only the files it just converted — so the rest of your vault is never pulled into the master note.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap demo">
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># every note gets frontmatter Obsidian reads</span>
+<span class="y">---</span>
+<span class="w">original_filename:</span> research-paper.pdf
+<span class="w">source_format:</span>   .pdf
+<span class="w">date_converted:</span>   2026-07-05 09:41:03
+<span class="y">---</span>
+
+<span class="w"># Research Paper</span>
+
+## Abstract
+Clean headings, lists, and tables — indexed,
+linked, and searchable in your vault.</pre>
+      </div>
+      <div class="txt reveal">
+        <span class="tag">built for vaults</span>
+        <h2>Notes your vault already knows how to use.</h2>
+        <p>Everything comes out as plain Markdown with the metadata PKM tools expect:</p>
+        <ul>
+          <li><span class="tick"></span><span><b>YAML properties.</b> Conversion date, source format, and original filename — filterable in Obsidian and Notion.</span></li>
+          <li><span class="tick"></span><span><b>Generated table of contents.</b> Combine a folder into one master note with clickable anchors.</span></li>
+          <li><span class="tick"></span><span><b>Clean structure.</b> Real headers and tables sharpen search and vault AI plugins alike.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="tag reveal">how it fits your workflow</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:24ch;">Drop, convert, and it's in the graph.</h2>
+      <div class="quad trio">
+        <div class="bcard reveal">
+          <span class="k">01</span>
+          <h3>Searchable at last</h3>
+          <p>Unsearchable PDFs and slide decks become native notes you can index, link, and full-text search.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">02</span>
+          <h3>One master note</h3>
+          <p>Merge a research folder into a single document with a table of contents — a tidy hub for a topic.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">03</span>
+          <h3>Private by default</h3>
+          <p>It all runs on your machine, so a vault full of personal notes never touches anyone's server.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--panel);">
+    <div class="wrap">
+      <span class="tag reveal">also for</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Same tool, other jobs.</h2>
+      <div class="doors">
+        <a class="door here" href="/obsidian/"><span class="dk">pkm</span><h3>Obsidian &amp; notes</h3><p>Clean Markdown for your vault.</p></a>
+        <a class="door" href="/save-tokens/"><span class="dk">ai users</span><h3>Cheaper prompts</h3><p>Fewer tokens per document.</p></a>
+        <a class="door" href="/private-docs/"><span class="dk">personal</span><h3>Your private records</h3><p>Medical, bank, tax.</p></a>
+        <a class="door" href="/legal/"><span class="dk">legal</span><h3>Client-confidential work</h3><p>Redact before AI, on-prem.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <span class="tag" style="color:#8B897B;justify-content:center;">get it</span>
+      <h2 style="margin-top:14px;">Convert that pile of PDFs tonight.</h2>
+      <p>Free to build from source, or pay what you want for the signed, ready-to-run app. macOS and Windows.</p>
+      <div class="hero-cta">
+        <a class="btn btn-hl" href="/#pricing">Download AI DocPrep</a>
+        <a class="btn btn-ghost" href="/#faq">Read the FAQ</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <span class="brand">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="20" height="20" rx="3" stroke="#FBFBF8" stroke-width="1.6"/>
+            <path d="M5.5 6.5h11" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#FFE23B"/>
+            <path d="M5.5 15.5h7" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          AI DocPrep
+        </span>
+        <p class="tagline">For people who'd rather not upload their life to a chatbot.</p>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <h4>Use cases</h4>
+          <a href="/legal/">Legal &amp; compliance</a>
+          <a href="/private-docs/">Private records</a>
+          <a href="/save-tokens/">Save tokens</a>
+          <a href="/obsidian/">Obsidian &amp; PKM</a>
+        </div>
+        <div class="col">
+          <h4>Open source</h4>
+          <a href="https://github.com/amitxm/AIDocPrep" rel="noopener">GitHub repository</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/LICENSE" rel="noopener">MIT license</a>
+        </div>
+        <div class="col">
+          <h4>Get it</h4>
+          <a href="/#pricing">macOS</a>
+          <a href="/#pricing">Windows</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 AI DocPrep · built on Microsoft's MarkItDown (MIT)</span>
+      <span>runs on your device · no tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revs = [].slice.call(document.querySelectorAll(".reveal"));
+    if(reduce || !("IntersectionObserver" in window)){ revs.forEach(function(el){el.classList.add("in");}); return; }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, {threshold:0.14, rootMargin:"0px 0px -40px 0px"});
+    revs.forEach(function(el){io.observe(el);});
+  })();
+</script>
+</body>
+</html>

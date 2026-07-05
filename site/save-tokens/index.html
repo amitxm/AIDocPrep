@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DocPrep — cut your AI token bill, convert documents first</title>
+<meta name="description" content="Stop paying to send invisible XML to the model. Convert PDFs, Word docs, and decks into clean Markdown first and the same document costs a fraction of the context window. The markdown token trick, as an app — no terminal.">
+<link rel="canonical" href="https://aidocprep.app/save-tokens/">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<meta name="theme-color" content="#FBFBF8">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aidocprep.app/save-tokens/">
+<meta property="og:title" content="AI DocPrep — cut your AI token bill, convert documents first">
+<meta property="og:description" content="The markdown token-saving trick, as an app. Convert first, send only the words, pay for a fraction of the context.">
+<meta property="og:image" content="https://aidocprep.app/icon.png">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="AI DocPrep home">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="3" stroke="#17160F" stroke-width="1.6"/>
+        <path d="M5.5 6.5h11" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#17160F"/>
+        <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      AI DocPrep
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="btn btn-ink" href="/#pricing">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="crumb"><a href="/">AI DocPrep</a> / save tokens</p>
+        <h1 style="margin-top:14px;">Stop paying to send <mark>invisible XML</mark> to the model.</h1>
+        <p class="lede">Raw office files are stuffed with formatting metadata that burns tokens and muddies answers. Convert to Markdown first and the same document costs a fraction of the context — with structure the model can actually follow. It's the trick you've seen on the terminal, as an app.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink" href="/#pricing">Download for Mac &amp; Windows</a>
+          <a class="btn btn-ghost" href="/#faq">Why it's cheaper</a>
+        </div>
+        <div class="hero-note">
+          <span>no terminal</span><span>·</span><span>batch a whole folder</span><span>·</span><span>savings per file</span>
+        </div>
+      </div>
+
+      <div class="machine" aria-label="A document shrinking from raw tokens to clean Markdown on your computer">
+        <span class="machine-tag">your computer · <b>offline</b></span>
+        <div class="flow">
+          <div class="filecard raw">
+            <div class="fname"><span>board-deck.pptx</span> <span class="tok"><b>18,412</b> tokens</span></div>
+            <div class="snippet">&lt;p:sld&gt;&lt;p:spTree&gt;&lt;p:sp&gt;&lt;a:off x="914400"
+y="685800"/&gt;&lt;a:t&gt;Q3 revenue&lt;/a:t&gt;…</div>
+          </div>
+          <div class="flow-mid">
+            <span class="arrow" aria-hidden="true">↓</span>
+            <span class="lab">converted on this machine</span>
+            <span class="savepill">−83% tokens</span>
+          </div>
+          <div class="filecard clean">
+            <div class="fname"><span>board-deck.md</span> <span class="tok"><b>3,120</b> tokens</span></div>
+            <div class="snippet">## Q3 revenue
+Revenue grew 14% quarter over quarter…</div>
+          </div>
+        </div>
+        <div class="netcut">internet requests during conversion: 0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <span class="tag">the short version</span>
+      <h2 style="margin-top:14px;">A 40-page PDF is billed as text plus an image of every page.</h2>
+      <p>Upload it raw and you pay for all of it. Convert to Markdown first and you send only the words — which is why the same report drops from tens of thousands of tokens to a few thousand, and fits in the context window with room to spare.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap demo">
+      <div class="txt reveal">
+        <span class="tag">the numbers</span>
+        <h2>The same document, a fraction of the tokens.</h2>
+        <p>Every file shows its estimated token count and how much it saved versus a raw upload — so you know what you're about to paste before you paste it.</p>
+        <div class="savings-figure">
+          <span class="big" data-count="88">88%</span>
+          <span class="cap">fewer tokens on a typical 40-page report, versus uploading it raw.</span>
+        </div>
+      </div>
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># the same 40-page report, two ways</span>
+
+board-report.pdf   <span class="w">~80,400 tokens</span>  <span class="m">(raw upload)</span>
+board-report.md    <span class="y">~9,500 tokens</span>   <span class="m">(after AI DocPrep)</span>
+
+<span class="m"># it shows the estimate for every file</span>
+<span class="w">✓ 10 files converted · ~72,794 tokens · <span class="y">−81% vs raw</span></span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" style="background:var(--ink);">
+    <div class="wrap" style="text-align:center;">
+      <span class="tag reveal" style="color:#8B897B;justify-content:center;">the actual app</span>
+      <h2 class="reveal" style="color:#fff;margin:14px auto 0;max-width:22ch;">No terminal. Just drop the folder.</h2>
+      <p class="reveal" style="color:#B7B5A6;margin:14px auto 0;max-width:54ch;">Ten mixed documents converted in 38 seconds, fully offline, with the token count and savings shown for every file.</p>
+      <figure class="shot reveal">
+        <img src="/screenshot.png" alt="AI DocPrep after converting a folder of ten documents, showing per-file token counts and 81% saved versus raw" />
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="tag reveal">why it helps</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:24ch;">Fewer tokens is only half of it.</h2>
+      <div class="quad trio">
+        <div class="bcard reveal">
+          <span class="k">01</span>
+          <h3>Cheaper every prompt</h3>
+          <p>You pay by the token. Strip the formatting bloat and the same document costs a fraction to send, every single time.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">02</span>
+          <h3>Sharper answers</h3>
+          <p>Clean Markdown headers, lists, and tables give the model a structure it follows — instead of guessing through extraction noise.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">03</span>
+          <h3>Whole folders at once</h3>
+          <p>Drop a directory, get one combined Markdown file with a table of contents. Paste it, or feed it straight to your RAG pipeline.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--panel);">
+    <div class="wrap">
+      <span class="tag reveal">also for</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Same tool, other jobs.</h2>
+      <div class="doors">
+        <a class="door here" href="/save-tokens/"><span class="dk">ai users</span><h3>Cheaper prompts</h3><p>Fewer tokens per document.</p></a>
+        <a class="door" href="/obsidian/"><span class="dk">pkm</span><h3>Obsidian &amp; notes</h3><p>Clean Markdown for your vault.</p></a>
+        <a class="door" href="/private-docs/"><span class="dk">personal</span><h3>Your private records</h3><p>Medical, bank, tax.</p></a>
+        <a class="door" href="/legal/"><span class="dk">legal</span><h3>Client-confidential work</h3><p>Redact before AI, on-prem.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <span class="tag" style="color:#8B897B;justify-content:center;">get it</span>
+      <h2 style="margin-top:14px;">Convert your next upload first.</h2>
+      <p>Free to build from source, or pay what you want for the signed, ready-to-run app. macOS and Windows.</p>
+      <div class="hero-cta">
+        <a class="btn btn-hl" href="/#pricing">Download AI DocPrep</a>
+        <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <span class="brand">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="20" height="20" rx="3" stroke="#FBFBF8" stroke-width="1.6"/>
+            <path d="M5.5 6.5h11" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#FFE23B"/>
+            <path d="M5.5 15.5h7" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          AI DocPrep
+        </span>
+        <p class="tagline">For people who'd rather not upload their life to a chatbot.</p>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <h4>Use cases</h4>
+          <a href="/legal/">Legal &amp; compliance</a>
+          <a href="/private-docs/">Private records</a>
+          <a href="/save-tokens/">Save tokens</a>
+          <a href="/obsidian/">Obsidian &amp; PKM</a>
+        </div>
+        <div class="col">
+          <h4>Open source</h4>
+          <a href="https://github.com/amitxm/AIDocPrep" rel="noopener">GitHub repository</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/LICENSE" rel="noopener">MIT license</a>
+        </div>
+        <div class="col">
+          <h4>Get it</h4>
+          <a href="/#pricing">macOS</a>
+          <a href="/#pricing">Windows</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 AI DocPrep · built on Microsoft's MarkItDown (MIT)</span>
+      <span>runs on your device · no tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revs = [].slice.call(document.querySelectorAll(".reveal"));
+    if(reduce || !("IntersectionObserver" in window)){ revs.forEach(function(el){el.classList.add("in");}); }
+    else {
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+      }, {threshold:0.14, rootMargin:"0px 0px -40px 0px"});
+      revs.forEach(function(el){io.observe(el);});
+    }
+    var counter = document.querySelector("[data-count]");
+    if(counter){
+      var target = parseInt(counter.getAttribute("data-count"),10);
+      if(reduce){ counter.textContent = target + "%"; return; }
+      var seen = false;
+      var co = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting && !seen){
+            seen = true; var n = 0, step = Math.max(1, Math.round(target/40));
+            var t = setInterval(function(){ n += step; if(n>=target){n=target;clearInterval(t);} counter.textContent = n + "%"; }, 22);
+          }
+        });
+      }, {threshold:0.6});
+      co.observe(counter);
+    }
+  })();
+</script>
+</body>
+</html>

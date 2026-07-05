@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DocPrep for legal — redact client files before AI sees them</title>
+<meta name="description" content="Use AI on client documents without breaching confidentiality. AI DocPrep redacts privileged details on your own machine — files never leave the firm, nothing is logged by a vendor. Open source, 100% offline.">
+<link rel="canonical" href="https://aidocprep.app/legal/">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<meta name="theme-color" content="#FBFBF8">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aidocprep.app/legal/">
+<meta property="og:title" content="AI DocPrep for legal — redact client files before AI sees them">
+<meta property="og:description" content="Meet your duty of confidentiality when you use AI. Redact privileged data locally; files never leave the firm.">
+<meta property="og:image" content="https://aidocprep.app/icon.png">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="AI DocPrep home">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="3" stroke="#17160F" stroke-width="1.6"/>
+        <path d="M5.5 6.5h11" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#17160F"/>
+        <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      AI DocPrep
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="btn btn-ink" href="/#pricing">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="crumb"><a href="/">AI DocPrep</a> / for legal &amp; compliance</p>
+        <h1 style="margin-top:14px;">Use AI on client documents <mark>without breaching confidentiality.</mark></h1>
+        <p class="lede">ABA Formal Opinion 512 expects you to protect client data before it reaches an AI tool. AI DocPrep redacts privileged details on your own machine, so files never leave the firm and no vendor keeps a copy.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink" href="/#pricing">Download for Mac &amp; Windows</a>
+          <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
+        </div>
+        <div class="hero-note">
+          <span>runs on-prem</span><span>·</span><span>no vendor logging</span><span>·</span><span>MIT open source</span>
+        </div>
+      </div>
+
+      <div class="machine" aria-label="A client file being redacted entirely on your machine">
+        <span class="machine-tag">your machine · <b>offline</b></span>
+        <div class="flow">
+          <div class="filecard raw">
+            <div class="fname"><span>engagement-letter.docx</span></div>
+            <div class="snippet">Client: <span class="pii">Jane Whitfield</span>
+SSN:    <span class="pii">402-19-8823</span>
+Matter: 2026-CV-00841</div>
+          </div>
+          <div class="flow-mid">
+            <span class="arrow" aria-hidden="true">↓</span>
+            <span class="lab">redacted on this machine</span>
+          </div>
+          <div class="filecard clean">
+            <div class="fname"><span>engagement-letter.md</span></div>
+            <div class="snippet">Client: <span class="bar">NAME</span>
+SSN:    <span class="bar">SSN</span>
+Matter: 2026-CV-00841</div>
+          </div>
+        </div>
+        <div class="netcut">internet requests during conversion: 0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <span class="tag">the short version</span>
+      <h2 style="margin-top:14px;">Redaction that never trusts a third party with the original.</h2>
+      <p>A cloud "redaction" service still receives the unredacted file. AI DocPrep runs entirely on the machine the file already lives on, so privileged material is never transmitted, cached, or used to train someone else's model.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="tag reveal">why firms use it</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Built for work that can't leave the building.</h2>
+      <div class="quad trio">
+        <div class="bcard reveal">
+          <span class="k">01</span>
+          <h3>Your duty of confidentiality, intact</h3>
+          <p>Strip client names, SSNs, account numbers, and identifiers before a single word reaches an AI tool — the step ABA 512 points to.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">02</span>
+          <h3>Nothing logged by a vendor</h3>
+          <p>No account, no upload, no telemetry. The file never leaves the device, so there's no third-party copy to subpoena or breach.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">03</span>
+          <h3>Your IT team can vet it</h3>
+          <p>The code is public under the MIT license. Security can read exactly what it does and confirm it makes no network calls, before approval.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--panel);">
+    <div class="wrap demo">
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># before — from the client file</span>
+Client:  <span class="w">Jane Whitfield</span>
+SSN:     <span class="w">402-19-8823</span>
+Card:    <span class="w">4111 1111 1111 1111</span>
+Email:   <span class="w">j.whitfield@example.com</span>
+
+<span class="m"># after — redacted locally, structure kept</span>
+Client:  <span class="y">[REDACTED_NAME]</span>
+SSN:     <span class="y">[REDACTED_SSN]</span>
+Card:    <span class="y">[REDACTED_CC]</span>
+Email:   <span class="y">[REDACTED_EMAIL]</span></pre>
+      </div>
+      <div class="txt reveal">
+        <span class="tag">how it redacts</span>
+        <h2>Three levels of thoroughness, all local.</h2>
+        <p>Match the depth to the sensitivity of the matter:</p>
+        <ul>
+          <li><span class="tick"></span><span><b>Instant patterns.</b> SSNs, account and card numbers, emails, phone numbers, credentials.</span></li>
+          <li><span class="tick"></span><span><b>On-device AI.</b> A bundled model catches party names, firms, and places.</span></li>
+          <li><span class="tick"></span><span><b>Local LLM.</b> The deepest, context-aware pass, through your own Ollama server.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="tag reveal">also for</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Same tool, other jobs.</h2>
+      <div class="doors">
+        <a class="door here" href="/legal/"><span class="dk">legal</span><h3>Client-confidential work</h3><p>Redact before AI, on-prem.</p></a>
+        <a class="door" href="/private-docs/"><span class="dk">personal</span><h3>Your private records</h3><p>Medical, bank, tax.</p></a>
+        <a class="door" href="/save-tokens/"><span class="dk">ai users</span><h3>Cheaper prompts</h3><p>Fewer tokens per document.</p></a>
+        <a class="door" href="/obsidian/"><span class="dk">pkm</span><h3>Obsidian &amp; notes</h3><p>Clean Markdown for your vault.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <span class="tag" style="color:#8B897B;justify-content:center;">get it</span>
+      <h2 style="margin-top:14px;">Try it on one matter this afternoon.</h2>
+      <p>Free to build from source, or pay what you want for the signed, ready-to-run app. macOS and Windows.</p>
+      <div class="hero-cta">
+        <a class="btn btn-hl" href="/#pricing">Download AI DocPrep</a>
+        <a class="btn btn-ghost" href="/#faq">Read the FAQ</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <span class="brand">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="20" height="20" rx="3" stroke="#FBFBF8" stroke-width="1.6"/>
+            <path d="M5.5 6.5h11" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#FFE23B"/>
+            <path d="M5.5 15.5h7" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          AI DocPrep
+        </span>
+        <p class="tagline">For people who'd rather not upload their life to a chatbot.</p>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <h4>Use cases</h4>
+          <a href="/legal/">Legal &amp; compliance</a>
+          <a href="/private-docs/">Private records</a>
+          <a href="/save-tokens/">Save tokens</a>
+          <a href="/obsidian/">Obsidian &amp; PKM</a>
+        </div>
+        <div class="col">
+          <h4>Open source</h4>
+          <a href="https://github.com/amitxm/AIDocPrep" rel="noopener">GitHub repository</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/LICENSE" rel="noopener">MIT license</a>
+        </div>
+        <div class="col">
+          <h4>Get it</h4>
+          <a href="/#pricing">macOS</a>
+          <a href="/#pricing">Windows</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 AI DocPrep · built on Microsoft's MarkItDown (MIT)</span>
+      <span>runs on your device · no tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revs = [].slice.call(document.querySelectorAll(".reveal"));
+    if(reduce || !("IntersectionObserver" in window)){ revs.forEach(function(el){el.classList.add("in");}); return; }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, {threshold:0.14, rootMargin:"0px 0px -40px 0px"});
+    revs.forEach(function(el){io.observe(el);});
+  })();
+</script>
+</body>
+</html>

@@ -84,7 +84,7 @@ Conversion is [Microsoft's MarkItDown](https://github.com/microsoft/markitdown) 
 Retrieval-Augmented Generation (RAG) is useful for searching across massive datasets (like millions of customer service logs), but it is often overkill and less effective for smaller knowledge bases (like code documentation, project folders, or product manuals).
 
 ### 1. Modern LLMs have massive context windows
-Models like Claude 3.5 Sonnet and Gemini 1.5 Pro support context windows from 200k to 2 million tokens. You can fit hundreds of documents directly into the prompt. If your data fits in the context window, you don't need RAG.
+Frontier models from Anthropic, OpenAI, and Google now ship context windows from 200k up to 1–2 million tokens — enough to fit hundreds of documents directly in the prompt. If your data fits in the context window, you don't need RAG.
 
 ### 2. RAG misses the "Big Picture"
 RAG works by cutting documents into small chunks and retrieving only the most relevant-looking chunks. If a question requires synthesizing information spread across multiple pages, chapters, or files, RAG often fails to retrieve all the pieces. Giving the LLM the entire compiled file lets it reason across the whole dataset at once.

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DocPrep — ask AI about your records without handing them over</title>
+<meta name="description" content="Get a chatbot to explain a lab result or summarize a bank statement without surrendering your SSN, account numbers, or address. AI DocPrep redacts the private parts on your own laptop first. Nothing is uploaded.">
+<link rel="canonical" href="https://aidocprep.app/private-docs/">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="stylesheet" href="/style.css">
+<meta name="theme-color" content="#FBFBF8">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aidocprep.app/private-docs/">
+<meta property="og:title" content="AI DocPrep — ask AI about your records without handing them over">
+<meta property="og:description" content="Redact your medical records and bank statements on your own laptop before AI sees them. Nothing is uploaded.">
+<meta property="og:image" content="https://aidocprep.app/icon.png">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="AI DocPrep home">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="3" stroke="#17160F" stroke-width="1.6"/>
+        <path d="M5.5 6.5h11" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#17160F"/>
+        <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      AI DocPrep
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="btn btn-ink" href="/#pricing">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="crumb"><a href="/">AI DocPrep</a> / your private records</p>
+        <h1 style="margin-top:14px;">Ask AI about your medical records. <mark>Keep your SSN out of it.</mark></h1>
+        <p class="lede">Want a chatbot to explain a lab result or summarize a bank statement? AI DocPrep strips the account numbers, addresses, and IDs first, right on your laptop — so you get the help without the exposure. Nothing is uploaded.</p>
+        <div class="hero-cta">
+          <a class="btn btn-ink" href="/#pricing">Download for Mac &amp; Windows</a>
+          <a class="btn btn-ghost" href="/#faq">Is it really private?</a>
+        </div>
+        <div class="hero-note">
+          <span>no account</span><span>·</span><span>no upload</span><span>·</span><span>works with Wi‑Fi off</span>
+        </div>
+      </div>
+
+      <div class="machine" aria-label="A bank statement being redacted entirely on your laptop">
+        <span class="machine-tag">your laptop · <b>offline</b></span>
+        <div class="flow">
+          <div class="filecard raw">
+            <div class="fname"><span>bank-statement.pdf</span></div>
+            <div class="snippet">Name:    <span class="pii">Maria Alvarez</span>
+Account: <span class="pii">4111 1111 1111 1111</span>
+SSN:     <span class="pii">402-19-8823</span></div>
+          </div>
+          <div class="flow-mid">
+            <span class="arrow" aria-hidden="true">↓</span>
+            <span class="lab">redacted on this laptop</span>
+          </div>
+          <div class="filecard clean">
+            <div class="fname"><span>bank-statement.md</span></div>
+            <div class="snippet">Name:    <span class="bar">NAME</span>
+Account: <span class="bar">CC</span>
+SSN:     <span class="bar">SSN</span></div>
+          </div>
+        </div>
+        <div class="netcut">internet requests during conversion: 0</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <span class="tag">the short version</span>
+      <h2 style="margin-top:14px;">The private version of pasting it into ChatGPT.</h2>
+      <p>Upload a raw document and the whole thing — SSN and all — lands on a company's servers, where it may be kept or used for training. AI DocPrep keeps the sensitive parts on your machine and hands the chatbot only the text you're comfortable sharing.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap demo">
+      <div class="codeblock reveal" aria-hidden="true">
+<pre><span class="m"># before — straight from the document</span>
+Patient: <span class="w">Maria Alvarez</span>
+Email:   <span class="w">m.alvarez@gmail.com</span>
+SSN:     <span class="w">402-19-8823</span>
+Card:    <span class="w">4111 1111 1111 1111</span>
+
+<span class="m"># after — redacted on your laptop</span>
+Patient: <span class="y">[REDACTED_NAME]</span>
+Email:   <span class="y">[REDACTED_EMAIL]</span>
+SSN:     <span class="y">[REDACTED_SSN]</span>
+Card:    <span class="y">[REDACTED_CC]</span></pre>
+      </div>
+      <div class="txt reveal">
+        <span class="tag">what it catches</span>
+        <h2>The details you'd never want on a server.</h2>
+        <p>Out of the box, with no setup, it removes:</p>
+        <ul>
+          <li><span class="tick"></span><span><b>The obvious.</b> SSNs, account and card numbers, emails, phone numbers, addresses.</span></li>
+          <li><span class="tick"></span><span><b>Names, with on-device AI.</b> A bundled model catches people, places, and organizations.</span></li>
+          <li><span class="tick"></span><span><b>Anything you add.</b> List your own terms — a case number, a nickname — to always scrub.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <span class="tag reveal">for the documents you don't share lightly</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:24ch;">Made for the sensitive stuff.</h2>
+      <div class="quad trio">
+        <div class="bcard reveal">
+          <span class="k">01</span>
+          <h3>Medical</h3>
+          <p>Explain a lab report, a diagnosis, or an insurance letter — without your name and record numbers going along for the ride.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">02</span>
+          <h3>Financial</h3>
+          <p>Summarize statements, categorize spending, or decode a fee — with account and card numbers stripped first.</p>
+        </div>
+        <div class="bcard reveal">
+          <span class="k">03</span>
+          <h3>Tax &amp; legal</h3>
+          <p>Get help understanding a form or a contract while your SSN, address, and signatures stay on your machine.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--panel);">
+    <div class="wrap">
+      <span class="tag reveal">also for</span>
+      <h2 class="reveal" style="margin-top:14px;max-width:22ch;">Same tool, other jobs.</h2>
+      <div class="doors">
+        <a class="door here" href="/private-docs/"><span class="dk">personal</span><h3>Your private records</h3><p>Medical, bank, tax.</p></a>
+        <a class="door" href="/legal/"><span class="dk">legal</span><h3>Client-confidential work</h3><p>Redact before AI, on-prem.</p></a>
+        <a class="door" href="/save-tokens/"><span class="dk">ai users</span><h3>Cheaper prompts</h3><p>Fewer tokens per document.</p></a>
+        <a class="door" href="/obsidian/"><span class="dk">pkm</span><h3>Obsidian &amp; notes</h3><p>Clean Markdown for your vault.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <span class="tag" style="color:#8B897B;justify-content:center;">get it</span>
+      <h2 style="margin-top:14px;">Keep the next document to yourself.</h2>
+      <p>Free to build from source, or pay what you want for the signed, ready-to-run app. macOS and Windows.</p>
+      <div class="hero-cta">
+        <a class="btn btn-hl" href="/#pricing">Download AI DocPrep</a>
+        <a class="btn btn-ghost" href="/#privacy">How privacy works</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <span class="brand">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="20" height="20" rx="3" stroke="#FBFBF8" stroke-width="1.6"/>
+            <path d="M5.5 6.5h11" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="5.5" y="9.6" width="11" height="3" rx="1" fill="#FFE23B"/>
+            <path d="M5.5 15.5h7" stroke="#FBFBF8" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          AI DocPrep
+        </span>
+        <p class="tagline">For people who'd rather not upload their life to a chatbot.</p>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <h4>Use cases</h4>
+          <a href="/legal/">Legal &amp; compliance</a>
+          <a href="/private-docs/">Private records</a>
+          <a href="/save-tokens/">Save tokens</a>
+          <a href="/obsidian/">Obsidian &amp; PKM</a>
+        </div>
+        <div class="col">
+          <h4>Open source</h4>
+          <a href="https://github.com/amitxm/AIDocPrep" rel="noopener">GitHub repository</a>
+          <a href="https://github.com/amitxm/AIDocPrep/blob/main/LICENSE" rel="noopener">MIT license</a>
+        </div>
+        <div class="col">
+          <h4>Get it</h4>
+          <a href="/#pricing">macOS</a>
+          <a href="/#pricing">Windows</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 AI DocPrep · built on Microsoft's MarkItDown (MIT)</span>
+      <span>runs on your device · no tracking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var revs = [].slice.call(document.querySelectorAll(".reveal"));
+    if(reduce || !("IntersectionObserver" in window)){ revs.forEach(function(el){el.classList.add("in");}); return; }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, {threshold:0.14, rootMargin:"0px 0px -40px 0px"});
+    revs.forEach(function(el){io.observe(el);});
+  })();
+</script>
+</body>
+</html>
