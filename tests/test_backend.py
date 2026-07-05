@@ -87,6 +87,17 @@ make_pdf(pdf_path, pages=3)
 check("pdf baseline = text + pages x 1500", estimate_source_tokens(pdf_path, output_tokens=800) == 3 * 1500 + 800,
       str(estimate_source_tokens(pdf_path, output_tokens=800)))
 
+# 2c. unsupported types are rejected before reaching any converter
+mp3_path = os.path.join(work, "song.mp3")
+with open(mp3_path, "wb") as f:
+    f.write(b"ID3junkjunkjunk")
+bad_events = []
+bad_outs = convert_files([mp3_path], progress_callback=bad_events.append)
+bad_error = next((e for e in bad_events if e["status"] == "error"), None)
+check("unsupported ext rejected", bad_outs == [] and bad_error is not None
+      and "Unsupported file type" in (bad_error["error"] or ""), str(bad_error and bad_error["error"]))
+os.remove(mp3_path)
+
 # 3. redaction (regex)
 red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")
 red_text = open(red_out, encoding="utf-8").read()

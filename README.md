@@ -23,7 +23,7 @@
 
 ## Why clean your documents first?
 
-Office files are bloated with formatting metadata the model never needs. A `.docx` is a zip of XML that runs 5–15× the size of its actual text; a raw PDF upload is billed as extracted text *plus* a rendered image of every page. Converting to Markdown first means:
+Office files are bloated with formatting metadata the model never needs. A `.docx` is a zip of XML several times the size of its actual text; a raw PDF upload is billed as extracted text *plus* a rendered image of every page. Converting to Markdown first means:
 
 - **Fewer tokens.** You send only the words, so the same document costs a fraction of the context window.
 - **Better answers.** Models follow semantic Markdown (headers, lists, tables) far more reliably than extraction noise.
@@ -36,9 +36,9 @@ Office files are bloated with formatting metadata the model never needs. A `.doc
 - **Token counts and savings.** Every file (and the batch total) shows an estimated token count and the percentage saved versus the raw source.
 - **Flexible output.** Individual `.md` files, individual plus a combined master file, or the combined file only.
 - **Redaction built in.** Three engines, all local: regex patterns, on-device NER, or a local LLM through Ollama.
-- **Fully offline.** No account, no telemetry, zero network calls during conversion. Works the same with Wi‑Fi off.
-- **Safe defaults.** Conflicts keep both files, your existing notes are never overwritten, and folder combining only touches files it just converted.
-- **OS integration.** Right-click "Convert to Markdown" in Windows Explorer and macOS Quick Actions.
+- **Fully offline.** No account, no telemetry, no internet access during conversion. Works the same with Wi‑Fi off.
+- **Safe defaults.** Conflicts keep both files, your existing notes are never overwritten, folder combining only touches files it just converted, and unsupported file types are rejected up front instead of guessed at.
+- **OS integration.** Right-click "Convert to Markdown" in Windows Explorer; a setup script adds a macOS Finder Quick Action.
 
 ## Obsidian & PKM vaults
 
@@ -100,7 +100,7 @@ While code editors and chat clients can index or parse local files, they have ma
 
 ## Privacy
 
-There is no server behind AI DocPrep and no account to sign in to. Conversion makes zero network requests — turn off Wi‑Fi and verify. The code is public under the MIT license, so you or your security team can read exactly what it does instead of trusting this paragraph.
+There is no server behind AI DocPrep and no account to sign in to. Conversion makes no internet requests — the optional Ollama engine talks only to your own server on localhost. Turn off Wi‑Fi and verify. The code is public under the MIT license, so you or your security team can read exactly what it does instead of trusting this paragraph.
 
 ## Installation
 
@@ -139,6 +139,7 @@ cd AIDocPrep
 python -m venv .venv
 source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm  # optional: the on-device NER redaction engine
 
 # Run the app
 python app.py

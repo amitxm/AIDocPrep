@@ -10,6 +10,11 @@ from markitdown import MarkItDown
 
 SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".vtt", ".html", ".htm"]
 
+# Everything convert_file will accept. Anything else is rejected up front so
+# no file ever reaches a converter with side effects — markitdown's audio
+# path, for example, sends audio to a cloud speech API when run from source.
+CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
+
 DEFAULT_OLLAMA_PROMPT = (
     "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
     "including names of people, organizations, locations, addresses, and any credentials from the user's text.\n"
@@ -314,6 +319,8 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
 
     base_name, ext = os.path.splitext(file_path)
     ext = ext.lower()
+    if ext not in CONVERTIBLE_EXTENSIONS:
+        raise ValueError(f"Unsupported file type: {ext or 'no extension'}")
     output_path = f"{base_name}.md"
 
     if not overwrite:
