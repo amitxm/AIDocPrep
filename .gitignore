@@ -20,3 +20,5 @@ desktop/.svelte-kit/
 desktop/src-tauri/target/
 desktop/src-tauri/binaries/
 desktop/src-tauri/gen/
+desktop/src-tauri/_sidecar_stage/
+desktop/src-tauri/_sidecar_work/
