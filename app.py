@@ -694,6 +694,10 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         stats = {"done": 0, "errors": 0, "tokens": 0, "src": 0, "out_comparable": 0}
 
         def progress(event):
+            if event["status"] == "started":
+                name = os.path.basename(event["file"])
+                self.ui(lambda: self.footer_label.configure(text=f"Converting — {name}") if hasattr(self, "footer_label") else None)
+                return
             stats["done"] += 1
             if event["status"] == "error":
                 stats["errors"] += 1

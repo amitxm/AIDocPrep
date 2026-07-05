@@ -371,9 +371,16 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
     cpu_cores = os.cpu_count() or 4
     optimal_workers = max(1, int(cpu_cores * 0.75))
 
+    def convert_one(file_path):
+        if progress_callback:
+            # "started" lets UIs show which file is being worked on; heavy
+            # files can take a while between completion events
+            progress_callback({"file": file_path, "status": "started", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": None, "total": total})
+        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         future_to_file = {
-            executor.submit(convert_file, file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms): file_path
+            executor.submit(convert_one, file_path): file_path
             for file_path in file_paths
         }
 
@@ -415,7 +422,7 @@ def convert_folder(folder_path: str, extensions: list[str] = None, progress_call
     target_files = scan_folder(folder_path, extensions)
 
     def event_callback(event):
-        if progress_callback:
+        if progress_callback and event["status"] != "started":
             progress_callback(event["done"], event["total"])
 
     return convert_files(

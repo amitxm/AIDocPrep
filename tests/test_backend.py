@@ -56,7 +56,7 @@ alpha_md = os.path.join(work, "alpha.md")
 check("yaml frontmatter injected", open(alpha_md, encoding="utf-8").read().startswith("---\n"))
 
 # 2b. source-token baseline for savings display
-alpha_event = next(e for e in events if e["file"].endswith("alpha.html"))
+alpha_event = next(e for e in events if e["file"].endswith("alpha.html") and e["status"] == "done")
 check("html event carries source_tokens", (alpha_event.get("source_tokens") or 0) > 0, str(alpha_event.get("source_tokens")))
 check("html raw > markdown output", alpha_event["source_tokens"] > alpha_event["tokens"],
       f"src={alpha_event['source_tokens']} out={alpha_event['tokens']}")

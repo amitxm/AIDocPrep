@@ -186,6 +186,8 @@
       }
       if (ev.event === "start") {
         progress = { done: 0, total: ev.total, current: "converting…" };
+      } else if (ev.event === "file" && ev.status === "started") {
+        progress = { ...progress, total: ev.total, current: baseName(ev.file) + "…" };
       } else if (ev.event === "file") {
         progress = { done: ev.done, total: ev.total, current: baseName(ev.file) };
         const it = ownerOf(ev.file);
