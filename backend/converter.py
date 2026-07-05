@@ -64,22 +64,26 @@ def estimate_tokens(text: str) -> int:
 
 # Formats whose raw bytes are text an LLM would actually be fed
 _PLAIN_TEXT_EXTENSIONS = (".html", ".htm", ".vtt", ".txt", ".csv", ".json", ".md")
-# Zip-of-XML Office formats: the raw representation is the uncompressed XML
-_OOXML_EXTENSIONS = (".docx", ".pptx", ".xlsx")
+# Zip-of-XML Office formats where the XML *is* the content (documents and
+# sheets). PPTX is handled separately: slide DrawingML is mostly geometry, so
+# an XML baseline overstates savings by orders of magnitude on image-heavy
+# decks.
+_OOXML_EXTENSIONS = (".docx", ".xlsx")
 
 
 # LLM providers process a raw-uploaded PDF as its extracted text PLUS a
 # rendered image of every page; a full page image costs ~1,500 tokens
 # (Anthropic documents 1,500-3,000 total per page depending on text density).
-_PDF_IMAGE_TOKENS_PER_PAGE = 1500
+# Decks uploaded raw get the same page-image treatment, one image per slide.
+_PAGE_IMAGE_TOKENS = 1500
 
 
 def estimate_source_tokens(file_path: str, output_tokens: int = 0):
     """Rough token estimate of the file's raw representation, used to show
-    savings vs the converted Markdown. Text formats use raw bytes; OOXML uses
-    the uncompressed XML; PDF uses extracted text (~= output_tokens) plus the
-    per-page image cost providers charge for raw PDF uploads. Returns None
-    where no honest baseline exists."""
+    savings vs the converted Markdown. Text formats use raw bytes; Word/Excel
+    use the uncompressed XML; PDFs and decks use extracted text
+    (~= output_tokens) plus the per-page image cost providers charge for raw
+    uploads. Returns None where no honest baseline exists."""
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in _PLAIN_TEXT_EXTENSIONS:
@@ -92,11 +96,18 @@ def estimate_source_tokens(file_path: str, output_tokens: int = 0):
                     if info.filename.endswith((".xml", ".rels")):
                         total += info.file_size  # uncompressed size
             return max(1, total // 4) if total else None
+        if ext == ".pptx":
+            import re
+            import zipfile
+            with zipfile.ZipFile(file_path) as z:
+                slides = sum(1 for name in z.namelist()
+                             if re.fullmatch(r"ppt/slides/slide\d+\.xml", name))
+            return slides * _PAGE_IMAGE_TOKENS + output_tokens if slides else None
         if ext == ".pdf":
             from pdfminer.pdfpage import PDFPage
             with open(file_path, "rb") as f:
                 pages = sum(1 for _ in PDFPage.get_pages(f))
-            return pages * _PDF_IMAGE_TOKENS_PER_PAGE + output_tokens if pages else None
+            return pages * _PAGE_IMAGE_TOKENS + output_tokens if pages else None
     except Exception:
         return None
     return None

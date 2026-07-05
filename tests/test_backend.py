@@ -87,6 +87,18 @@ make_pdf(pdf_path, pages=3)
 check("pdf baseline = text + pages x 1500", estimate_source_tokens(pdf_path, output_tokens=800) == 3 * 1500 + 800,
       str(estimate_source_tokens(pdf_path, output_tokens=800)))
 
+# pptx baseline: slides x 1500 + text, NOT the DrawingML XML size (which
+# overstates savings on image-heavy decks)
+import zipfile as _zipfile
+pptx_path = os.path.join(work, "deck.pptx")
+with _zipfile.ZipFile(pptx_path, "w") as z:
+    z.writestr("[Content_Types].xml", "<Types/>")
+    for i in range(1, 6):
+        z.writestr(f"ppt/slides/slide{i}.xml", "<p:sld>" + "x" * 40000 + "</p:sld>")
+    z.writestr("ppt/slides/_rels/slide1.xml.rels", "<Relationships/>")
+check("pptx baseline = text + slides x 1500", estimate_source_tokens(pptx_path, output_tokens=700) == 5 * 1500 + 700,
+      str(estimate_source_tokens(pptx_path, output_tokens=700)))
+
 # 2c. unsupported types are rejected before reaching any converter
 mp3_path = os.path.join(work, "song.mp3")
 with open(mp3_path, "wb") as f:

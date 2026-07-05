@@ -71,7 +71,7 @@ tests/            Backend and GUI test suites
 
 Conversion is [Microsoft's MarkItDown](https://github.com/microsoft/markitdown) with a purpose-built converter per format, run in parallel across ~75% of CPU cores. Office temp/lock files (`~$…`) are skipped.
 
-**Token math, so you can audit the claims:** estimates use ~4 characters per token (within roughly ±15% for English). Savings baselines are honest per format — text formats compare against raw bytes, Office formats against their uncompressed XML, and PDFs against extracted text plus ~1,500 tokens per page, matching what providers charge for raw PDF uploads. Where no defensible baseline exists, no savings are shown.
+**Token math, so you can audit the claims:** estimates use ~4 characters per token (within roughly ±15% for English). Savings baselines are honest per format — text formats compare against raw bytes; Word and Excel files against their uncompressed XML (there, the XML is the content); PDFs and PowerPoint decks against extracted text plus ~1,500 tokens per page or slide, matching what providers charge for raw uploads. Deck DrawingML is deliberately not used as a baseline — it's mostly geometry, and would overstate savings by orders of magnitude. Where no defensible baseline exists, no savings are shown.
 
 **Redaction engines:** regex patterns always run first (emails, SSNs, credit cards, phone numbers, private keys, AWS/OpenAI/Slack tokens, credential assignments, connection-string passwords, IP/MAC addresses). Optionally add on-device NER (bundled spaCy `en_core_web_sm` — names, organizations, places) or a context-aware pass through your local Ollama server, chunked and serialized so the server isn't flooded.
 
