@@ -109,9 +109,15 @@
       } catch {
         continue;
       }
-      const item = { path: p, name: baseName(p), isDir, count: isDir ? null : 1, done: 0, tokens: 0, errors: 0 };
-      items.push(item);
-      if (isDir) countSupported(p).then((n) => (item.count = n));
+      items.push({ path: p, name: baseName(p), isDir, count: isDir ? null : 1, done: 0, tokens: 0, errors: 0 });
+      if (isDir) {
+        // Mutations must go through the $state proxy in the array — writing
+        // to the raw pre-push object is invisible to Svelte's reactivity
+        const tracked = items[items.length - 1];
+        countSupported(p)
+          .then((n) => (tracked.count = n))
+          .catch(() => (tracked.count = 0));
+      }
     }
     if (items.length) state = "staged";
   }

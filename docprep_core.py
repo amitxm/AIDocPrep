@@ -15,7 +15,12 @@ import sys
 import json
 import time
 import signal
+import warnings
 import argparse
+
+# pydub (pulled in by markitdown for audio) warns about missing ffmpeg at
+# import time; irrelevant for document conversion and noisy on stderr
+warnings.filterwarnings("ignore", message="Couldn't find ffmpeg or avconv")
 
 from backend.converter import convert_files, scan_folder, estimate_tokens
 from backend.combiner import combine_files
