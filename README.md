@@ -1,58 +1,79 @@
 <p align="center">
-  <img src="icon.png" alt="AI DocPrep Logo" width="128"/>
+  <img src="icon.png" alt="AI DocPrep icon" width="112"/>
 </p>
 
-# AI DocPrep
+<h1 align="center">AI DocPrep</h1>
 
-AI DocPrep is an offline desktop utility that converts office files (`.docx`, `.pdf`, `.pptx`, `.xlsx`, `.html`, `.vtt`) into clean, token-efficient Markdown. 
+<p align="center">
+  Convert PDFs, Word docs, decks, and spreadsheets into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
+</p>
 
-If you frequently feed custom documents, manuals, or folders of notes into LLMs (like Claude, GPT-4, or local models via Ollama), AI DocPrep helps you prepare that text so you use fewer tokens and get better responses.
+<p align="center">
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest"><img src="https://img.shields.io/github/v/release/amitxm/AIDocPrep" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black" alt="Platforms">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://aidocprep.app">aidocprep.app</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip">Download for Mac</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_Setup.exe">Download for Windows</a> ·
+  <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
+</p>
 
 ## Why clean your documents first?
 
-Large Language Models parse Markdown much better than raw PDF or Word files. Directly uploading PDFs or spreadsheets often wastes context window space on layout metadata, XML junk, and style tags.
+Office files are bloated with formatting metadata the model never needs. A `.docx` is a zip of XML that runs 5–15× the size of its actual text; a raw PDF upload is billed as extracted text *plus* a rendered image of every page. Converting to Markdown first means:
 
-By converting to Markdown first:
-- **Save Tokens:** Stripping hidden formatting and structure metadata reduces the token count of your files.
-- **Better Answers:** LLMs understand semantic Markdown (headers, lists, tables) natively.
-- **Consolidate Sources:** Merge an entire folder of files into a single `combined.md` file with a table of contents.
-- **Privacy:** Scrub PII (SSNs, credit cards, emails, phone numbers) locally on your machine before uploading anything to a cloud provider.
+- **Fewer tokens.** You send only the words, so the same document costs a fraction of the context window.
+- **Better answers.** Models follow semantic Markdown (headers, lists, tables) far more reliably than extraction noise.
+- **One file.** Merge a folder of documents into a single `combined.md` with a generated table of contents.
+- **Privacy.** Redact SSNs, credit cards, emails, phone numbers, names, and API keys on your machine, before anything reaches a cloud provider.
 
-## Perfect for Obsidian & PKM Vaults
+## What it does
 
-If you use **Obsidian**, **Notion**, **Logseq**, or other Markdown-based knowledge bases, AI DocPrep fits seamlessly into your note-taking workflow:
-- **Searchable Office Files:** Convert unsearchable PDFs, Word docs, PowerPoint presentations, or Excel spreadsheets into native Markdown notes that can be fully indexed, linked, and searched.
-- **YAML Frontmatter & Properties:** Automatically embeds conversion date, source format, and original file paths as YAML properties. Obsidian natively reads these, making it easy to filter and query your documents.
-- **Folder Merging:** Combine research directories of multiple files into a single master note with a clickable, generated Table of Contents.
-- **Supercharge Vault AI:** Clean Markdown structure (headers, lists, tables) significantly improves the indexing accuracy of vault chat plugins (like *Smart Connections* or *Obsidian Copilot*).
+- **Drag & drop queue.** Drop any mix of files and folders anywhere on the window; convert the whole batch with one click.
+- **Token counts and savings.** Every file (and the batch total) shows an estimated token count and the percentage saved versus the raw source.
+- **Flexible output.** Individual `.md` files, individual plus a combined master file, or the combined file only.
+- **Redaction built in.** Three engines, all local: regex patterns, on-device NER, or a local LLM through Ollama.
+- **Fully offline.** No account, no telemetry, zero network calls during conversion. Works the same with Wi‑Fi off.
+- **Safe defaults.** Conflicts keep both files, your existing notes are never overwritten, and folder combining only touches files it just converted.
+- **OS integration.** Right-click "Convert to Markdown" in Windows Explorer and macOS Quick Actions.
 
-## Features
+## Obsidian & PKM vaults
 
-- **Drag & Drop Queue:** Drop any mix of files and folders anywhere on the window — they stack up as one batch you convert with a single click. No modes to pick first.
-- **Token Counts:** Each converted file (and the batch total) shows an approximate LLM token count, so you know what you're about to paste into a context window.
-- **Flexible Output:** One dropdown chooses between individual `.md` files, individual files plus a combined master file, or the combined file only.
-- **Results You Can Act On:** When a batch finishes, jump straight to the output folder or copy all the Markdown to your clipboard.
-- **Conversion Engine:** Powered by Microsoft's `MarkItDown`. Handles `.docx`, `.pdf`, `.pptx`, `.xlsx`, `.html`, and `.vtt` transcripts; Office temp/lock files are skipped automatically.
-- **Local Redaction:** A built-in PII scrubber (regex, on-device spaCy NER, or a local Ollama model) removes sensitive data before the text leaves your machine. Nothing is sent to the internet.
-- **Folder Combiner:** Merges the files it just converted into a single master Markdown file with a table of contents — your pre-existing notes in the same folder are never swept in.
-- **Persistent Settings:** Output, YAML, redaction engine, custom prompts and terms are all saved and restored between launches.
-- **Multi-threaded Processing:** Conversions run in parallel across CPU threads (capped at 75% usage to prevent system slowdowns).
-- **Metadata Insertion:** Adds YAML frontmatter (timestamps, original paths, source format) to the top of each file, which is useful for Obsidian, Notion, or custom scripts.
-- **OS Integration:** Add "Convert to Markdown" options directly to the Windows right-click menu or macOS Quick Actions.
+If you use Obsidian, Notion, or Logseq: converted notes carry YAML frontmatter (conversion date, source format, original filename) that Obsidian reads natively, combined files get a clickable table of contents, and clean structure improves the accuracy of vault search and AI plugins. Pre-existing `.md` notes in a folder are never swept into combined output.
 
-## Command Line
+## Command line
 
-The conversion engine also runs headless via `docprep_core.py` — handy for scripts, watch folders, or automation:
+The engine runs headless via `docprep_core.py`, which is also the machine interface the desktop app drives:
 
 ```bash
 # Convert files and folders (redacted, combined into one master file)
 python docprep_core.py ./research report.docx --output combined-only --redact
 
-# Machine-readable progress (one JSON event per line) for tooling
+# Machine-readable progress: one JSON event per line (start / file / combined / summary)
 python docprep_core.py ./docs --json
 ```
 
-Run `python docprep_core.py --help` for all options (output mode, conflict policy, YAML/TOC toggles, redaction engine, custom terms).
+Every option is a flag: output mode, conflict policy, YAML/TOC toggles, redaction engine and model, custom terms and prompt files. Exit codes: `0` ok, `1` partial failures, `2` no input, `130` cancelled. Run `--help` for the full list.
+
+## How it's built
+
+```
+backend/          Python engine: markitdown conversion, redaction, combining, settings
+docprep_core.py   Headless CLI wrapping the engine; emits JSON-lines events
+app.py            Current shipping GUI (CustomTkinter)
+desktop/          Next-generation app: Tauri 2 + Svelte 5, runs docprep-core as a sidecar
+site/             aidocprep.app marketing page (static, served via Cloudflare)
+tests/            Backend and GUI test suites
+```
+
+Conversion is [Microsoft's MarkItDown](https://github.com/microsoft/markitdown) with a purpose-built converter per format, run in parallel across ~75% of CPU cores. Office temp/lock files (`~$…`) are skipped.
+
+**Token math, so you can audit the claims:** estimates use ~4 characters per token (within roughly ±15% for English). Savings baselines are honest per format — text formats compare against raw bytes, Office formats against their uncompressed XML, and PDFs against extracted text plus ~1,500 tokens per page, matching what providers charge for raw PDF uploads. Where no defensible baseline exists, no savings are shown.
+
+**Redaction engines:** regex patterns always run first (emails, SSNs, credit cards, phone numbers, private keys, AWS/OpenAI/Slack tokens, credential assignments, connection-string passwords, IP/MAC addresses). Optionally add on-device NER (bundled spaCy `en_core_web_sm` — names, organizations, places) or a context-aware pass through your local Ollama server, chunked and serialized so the server isn't flooded.
 
 ## FAQ: Why use this instead of RAG?
 
@@ -77,67 +98,58 @@ While code editors and chat clients can index or parse local files, they have ma
 - **Format-aware parsing:** AI DocPrep uses dedicated converters per format (via `MarkItDown`) instead of treating everything as plain text, so tables, slides, and spreadsheets survive the trip to Markdown.
 - **Scattered files:** Uploading 50 files manually can trigger UI limits. AI DocPrep merges everything into a single structured master document with a generated Table of Contents, making context ingestion a one-click action.
 
+## Privacy
+
+There is no server behind AI DocPrep and no account to sign in to. Conversion makes zero network requests — turn off Wi‑Fi and verify. The code is public under the MIT license, so you or your security team can read exactly what it does instead of trusting this paragraph.
+
 ## Installation
 
-### 🍏 macOS Installation
+### macOS
 
-We recommend using the **Terminal Installer** for the smoothest experience, or doing a manual download:
-
-#### Option A: Terminal Installer (Recommended)
-Copy and paste this command into your Terminal to download, extract, and install the app directly into your `/Applications` folder. Since it downloads via `curl`, it **automatically bypasses** macOS Gatekeeper quarantine blocks and "damaged app" warnings:
+**Option A — terminal installer.** Downloads via `curl`, so the file never gets the browser's quarantine flag and you skip the "damaged app" warning:
 
 ```bash
-curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/download/v1.2.0/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
+curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
 ```
 
-*Once run, you can immediately launch **AI DocPrep** from your Applications folder or Spotlight.*
+Launch AI DocPrep from Applications or Spotlight.
 
-#### Option B: Manual Download
-1. Download `AIDocPrep_macOS.zip` from the **[Latest GitHub Release](https://github.com/amitxm/AIDocPrep/releases/latest)**.
-2. Unzip the file and drag `AIDocPrep.app` to your `/Applications` folder.
-3. If macOS blocks launch with a *"damaged app"* error, either run the Terminal Installer above, or bypass it manually:
-   - Open **System Settings** -> **Privacy & Security**.
-   - Scroll down to the **Security** section.
-   - Click **Open Anyway** next to the `AIDocPrep` block message.
+**Option B — manual download.**
+1. Download `AIDocPrep_macOS.zip` from the [latest release](https://github.com/amitxm/AIDocPrep/releases/latest).
+2. Unzip and drag `AIDocPrep.app` into `/Applications`.
+3. If macOS shows a "damaged app" warning: **System Settings → Privacy & Security → Open Anyway**, or use Option A.
 
----
+### Windows
 
-### 🔌 Windows Installation
+1. Download `AIDocPrep_Setup.exe` from the [latest release](https://github.com/amitxm/AIDocPrep/releases/latest).
+2. Run the installer.
 
-1. Download `AIDocPrep_Setup.exe` from the **[Latest GitHub Release](https://github.com/amitxm/AIDocPrep/releases/latest)**.
-2. Run the installer and follow the prompts.
+### Support the project
 
----
+AI DocPrep is free and open source. If it saves you tokens or time, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). Proceeds fund the Apple Developer membership for code-signing, which removes the macOS security warnings and puts the app on the Mac App Store.
 
-### 💖 Support the Project (Mac App Store & Signing)
-AI DocPrep is completely free and open-source. If this utility saves you time and context window tokens, you can support the project on Gumroad:
+## Building from source
 
-👉 **[Support on Gumroad (Pay-What-You-Want)](https://belsonbox.gumroad.com/l/aidocprep)**
+Prerequisites: Python 3.11+.
 
-*All donations directly fund the **$99/year Apple Developer membership**. Our goal is to officially code-sign the app, eliminate macOS security warnings entirely, and publish AI DocPrep directly on the **Mac App Store**!*
-
----
-
-### Building from Source (Free)
-If you prefer to compile the application yourself, you can build it from source:
-
-#### Prerequisites
-- Python 3.11+
-
-### Setup
 ```bash
-# Clone the repository
 git clone https://github.com/amitxm/AIDocPrep.git
 cd AIDocPrep
 
-# Set up virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .\.venv\Scripts\activate
-
-# Install dependencies
+source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
 pip install -r requirements.txt
+
+# Run the app
+python app.py
+
+# Run the tests
+python tests/test_backend.py
+python tests/test_gui.py      # needs a display
 ```
 
-### Build Commands
-- **Windows:** Run `.\build_win.ps1` to build the optimized PyInstaller executable, then compile `installer.iss` with Inno Setup.
-- **macOS:** Run `bash build_mac.sh` to generate the macOS App bundle.
+Release builds: `.\build_win.ps1` then compile `installer.iss` with Inno Setup (Windows), or `bash build_mac.sh` (macOS). The Tauri app in `desktop/` has its own workflow: build the sidecar with `desktop/build-sidecar.ps1` (or `.sh`), then `npm run tauri dev`.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Bundles [MarkItDown](https://github.com/microsoft/markitdown) (MIT, Microsoft).
