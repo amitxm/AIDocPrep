@@ -9,15 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/amitxm/AIDocPrep/releases/latest"><img src="https://img.shields.io/github/v/release/amitxm/AIDocPrep" alt="Latest release"></a>
+  <a href="https://github.com/amitxm/AIDocPrep/releases"><img src="https://img.shields.io/github/v/release/amitxm/AIDocPrep?include_prereleases" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black" alt="Platforms">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="MIT license"></a>
 </p>
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip">Download for Mac</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_Setup.exe">Download for Windows</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases">Download</a> ·
   <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
 </p>
 
@@ -108,29 +107,15 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 ## Installation
 
-### macOS
+Download the build for your platform from the [releases page](https://github.com/amitxm/AIDocPrep/releases). The **v2 alpha** (the native Tauri rebuild) is at the top; **v1.2** is the last stable release below it. Neither is code-signed yet, so the OS will warn on first launch — that's expected.
 
-**Option A — terminal installer.** Downloads via `curl`, so the file never gets the browser's quarantine flag and you skip the "damaged app" warning:
+**macOS** — open the `.dmg` and drag AI DocPrep into Applications (the v2 alpha is Apple Silicon). On first launch, if you see an "unidentified developer" or "damaged" warning, right-click the app and choose **Open**, or go to **System Settings → Privacy & Security → Open Anyway**. Downloading the file with `curl` instead of a browser skips the quarantine flag and the warning entirely.
 
-```bash
-curl -L -o AIDocPrep.zip https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep_macOS.zip && unzip -q AIDocPrep.zip -d /Applications && rm AIDocPrep.zip
-```
-
-Launch AI DocPrep from Applications or Spotlight.
-
-**Option B — manual download.**
-1. Download `AIDocPrep_macOS.zip` from the [latest release](https://github.com/amitxm/AIDocPrep/releases/latest).
-2. Unzip and drag `AIDocPrep.app` into `/Applications`.
-3. If macOS shows a "damaged app" warning: **System Settings → Privacy & Security → Open Anyway**, or use Option A.
-
-### Windows
-
-1. Download `AIDocPrep_Setup.exe` from the [latest release](https://github.com/amitxm/AIDocPrep/releases/latest).
-2. Run the installer.
+**Windows** — run the `…-setup.exe`. If SmartScreen flags an unknown publisher, choose **More info → Run anyway**.
 
 ### Support the project
 
-AI DocPrep is free and open source. If it saves you tokens or time, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). Proceeds fund the Apple Developer membership for code-signing, which removes the macOS security warnings and puts the app on the Mac App Store.
+AI DocPrep is free and open source. If it saves you tokens or time, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). That funds the code-signing certificates that remove these OS warnings and put the app on the Mac App Store and Microsoft Store.
 
 ## Building from source
 
