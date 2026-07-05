@@ -10,6 +10,7 @@ dist/
 combined_master.md
 *.md
 !README.md
+!CLAUDE.md
 Output/
 
 # Tauri desktop app
