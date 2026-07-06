@@ -109,7 +109,16 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 Download the build for your platform from the [releases page](https://github.com/amitxm/AIDocPrep/releases). The **v2 alpha** (the native Tauri rebuild) is at the top; **v1.2** is the last stable release below it. Neither is code-signed yet, so the OS will warn on first launch — that's expected.
 
-**macOS** — open the `.dmg` and drag AI DocPrep into Applications (the v2 alpha is Apple Silicon). On first launch, if you see an "unidentified developer" or "damaged" warning, right-click the app and choose **Open**, or go to **System Settings → Privacy & Security → Open Anyway**. Downloading the file with `curl` instead of a browser skips the quarantine flag and the warning entirely.
+**macOS** — open the `.dmg` and drag AI DocPrep into Applications (the v2 alpha is Apple Silicon). It isn't notarized yet, so macOS blocks the first launch. Get past it one of these ways:
+
+- Right-click the app and choose **Open** (or **System Settings → Privacy & Security → Open Anyway**).
+- If macOS insists the app is "damaged" and won't open — common on recent versions — clear the quarantine flag from Terminal, then open it normally:
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/AI DocPrep.app"
+  ```
+
+- Or sidestep it entirely: downloading the `.dmg` with `curl` instead of a browser never attaches the quarantine flag in the first place.
 
 **Windows** — run the `…-setup.exe`. If SmartScreen flags an unknown publisher, choose **More info → Run anyway**.
 
