@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases">Download</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.0-alpha.1">Download the v2 alpha</a> ·
   <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
 </p>
 
