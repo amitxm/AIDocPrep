@@ -184,8 +184,9 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
     # SSH / PEM Private Keys
     text = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----\s*[\s\S]+?\s*-----END [A-Z ]+ PRIVATE KEY-----', '[REDACTED_PRIVATE_KEY]', text)
 
-    # Email
-    text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED_EMAIL]', text)
+    # Email (domain is dot-separated labels; the final label must not trail a
+    # dot, so a sentence-ending period after the address is preserved)
+    text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+', '[REDACTED_EMAIL]', text)
 
     # SSN (XXX-XX-XXXX or XXX XX XXXX)
     text = re.sub(r'\b\d{3}[-.\s]\d{2}[-.\s]\d{4}\b', '[REDACTED_SSN]', text)
@@ -193,8 +194,10 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
     # Credit Card (16 digits with optional spaces or dashes)
     text = re.sub(r'\b(?:\d{4}[-\s]?){3}\d{4}\b', '[REDACTED_CC]', text)
 
-    # Phone (US/Generic: (555) 123-4567, 555-123-4567, etc.)
-    text = re.sub(r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', '[REDACTED_PHONE]', text)
+    # Phone (US/Generic: (555) 123-4567, 555-123-4567, etc.). The area code is
+    # matched as an explicit "(555)"-or-"555" alternation so a wrapping paren
+    # (and a leading +) are consumed rather than left dangling.
+    text = re.sub(r'(?<!\d)(?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)', '[REDACTED_PHONE]', text)
 
     # API Keys & Tokens
     # AWS Access Key ID

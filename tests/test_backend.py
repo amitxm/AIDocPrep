@@ -21,6 +21,15 @@ def check(name, cond, detail=""):
     if not cond:
         failures.append(name)
 
+def known_gap(name, resolved, detail=""):
+    """Documents a redaction-quality limitation without failing the suite.
+    Prints RESOLVED once the gap closes (e.g. after the GLiNER upgrade), which
+    is the signal to promote it to a hard assertion."""
+    if resolved:
+        print(f"[RESOLVED] {name} — now fixed; promote to a check() assertion")
+    else:
+        print(f"[KNOWN-GAP] {name} (tracked for GLiNER redaction upgrade) {detail}")
+
 work = tempfile.mkdtemp(prefix="docprep_test_")
 sub = os.path.join(work, "notes")
 os.makedirs(sub)
@@ -111,12 +120,42 @@ check("unsupported ext rejected", bad_outs == [] and bad_error is not None
 os.remove(mp3_path)
 
 # 3. redaction (regex)
+from backend.converter import redact_pii_content
 red_out = convert_file(os.path.join(work, "alpha.html"), overwrite=False, redact_pii=True, redact_mode="Regex Only")
 red_text = open(red_out, encoding="utf-8").read()
 check("keep-both naming", red_out.endswith("alpha (1).md"), red_out)
 check("email redacted", "[REDACTED_EMAIL]" in red_text)
 check("phone redacted", "[REDACTED_PHONE]" in red_text)
 os.remove(red_out)
+
+# 3b. regex redaction edge cases (previously leaked characters)
+r = redact_pii_content("Call (503) 555-0182 today.", mode="Regex Only")
+check("phone with parens leaves no dangling '(' or digits",
+      "[REDACTED_PHONE]" in r and "(" not in r and "503" not in r, repr(r))
+r = redact_pii_content("Reach a.b@school.edu. Next sentence stays.", mode="Regex Only")
+check("email preserves the sentence-ending period", "[REDACTED_EMAIL]." in r, repr(r))
+check("email does not swallow the following word", "Next sentence stays" in r, repr(r))
+
+# 3c. on-device NER redaction: privacy invariants (hard) + known quality gaps.
+# Reproduces the student-gradebook findings — names/scores in terse table cells.
+NER_TABLE = "| Marcus Delgado | RHS-2024-0142 | 88 |\n| James Whitfield | RHS-2024-0103 | 94 |"
+try:
+    nr = redact_pii_content(NER_TABLE, mode="Local NER (spaCy)")
+    # Privacy invariants — MUST hold regardless of label accuracy
+    check("NER: numeric scores survive redaction", "88" in nr and "94" in nr, repr(nr))
+    check("NER: no student name left in cleartext",
+          "Marcus Delgado" not in nr and "James Whitfield" not in nr
+          and "Marcus" not in nr and "Whitfield" not in nr, repr(nr))
+    # Known quality gaps — spaCy en_core_web_sm on terse tabular text.
+    # These flip to RESOLVED when a better model (GLiNER) lands.
+    known_gap("NER labels every person as REDACTED_NAME (not REDACTED_LOCATION)",
+              "[REDACTED_LOCATION]" not in nr, repr(nr))
+    known_gap("NER labels names consistently across rows",
+              nr.count("[REDACTED_NAME]") == 2, f"names tagged={nr.count('[REDACTED_NAME]')}/2")
+    known_gap("NER handles alphanumeric IDs cleanly (no partial 'RHS' mangling)",
+              "[REDACTED_LOCATION]-" not in nr, repr(nr))
+except Exception as e:
+    print(f"[SKIP] on-device NER tests — spaCy model unavailable: {e}")
 
 # 4. combine_files only includes the given list (not existing-note.md)
 combined = combine_files(sorted(outs), os.path.join(work, "test-combined.md"), base_dir=work, collection_name="test")
