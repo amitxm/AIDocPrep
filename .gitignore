@@ -11,6 +11,7 @@ combined_master.md
 *.md
 !README.md
 !CLAUDE.md
+!desktop/SIGNING.md
 Output/
 
 # Tauri desktop app
