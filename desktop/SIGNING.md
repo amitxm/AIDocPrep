@@ -30,6 +30,40 @@ Sign early so reputation starts building.
 | OV cert (Sectigo, SSL.com, DigiCert) | ~$200–400/yr | Yes (mandatory since June 2023) | Traditional; sign with a plugged-in USB token. |
 | EV cert | ~$300–700/yr | Yes | Historically instant trust; less advantageous now. |
 
+### Two things to know before choosing Trusted Signing
+
+**It is a signing *service*, not a certificate you own.** Microsoft holds the
+cert in their cloud and you call the service to sign each artifact — that is why
+there is no USB token and why it bills ~$9.99/month instead of once a year. It is
+an ongoing subscription: stop paying and you can no longer sign *new* builds,
+though anything already signed with a timestamp stays valid indefinitely. (An
+OV/EV cert is the opposite: a yearly purchase you hold on a token.)
+
+**Check eligibility before subscribing — validation is where people get stuck.**
+Trusted Signing requires identity validation:
+- **Organization**: needs a verifiable legal entity; at launch Microsoft required
+  the business to be roughly **3+ years old** (checked against public / D&B
+  records). A newer entity can be blocked on this path.
+- **Individual**: a separate personal government-ID verification path — use this
+  if you do not have an established company.
+
+Confirm you qualify *first*, then subscribe. If the org-age rule blocks you and
+individual validation does not fit, fall back to an OV cert on a token (no
+entity-age requirement, but adds the token friction).
+
+### Cross-platform cost
+
+This document is Windows only. Signing is per-platform and the certificates do
+not transfer:
+
+| Platform | What you need | Cost |
+|---|---|---|
+| Windows | Azure Trusted Signing (or OV/EV cert) | ~$10/mo (or ~$200–700/yr) |
+| macOS | Apple Developer Program (sign + notarize) | $99/yr |
+
+So shipping both platforms means budgeting both. macOS signing is covered in its
+companion doc, [SIGNING-MACOS.md](SIGNING-MACOS.md).
+
 ## Option A — Azure Trusted Signing (recommended)
 
 1. In the Azure portal: create a **Trusted Signing account** and a **certificate
