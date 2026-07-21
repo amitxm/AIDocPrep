@@ -309,7 +309,7 @@
         <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round" />
       </svg>
       AI DocPrep
-      <span class="tag">v2.0 alpha</span>
+      <span class="tag">v2.0.1 beta 1</span>
     </span>
     <button class="gear" aria-label="Settings" onclick={() => (showSettings = true)}>&#9881;</button>
   </header>
