@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Download pre-release</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Download free beta</a> ·
   <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
 </p>
 
@@ -107,24 +107,15 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 ## Installation
 
-Download the build for your platform from the [releases page](https://github.com/amitxm/AIDocPrep/releases). The **v2 alpha** (the native Tauri rebuild) is at the top; **v1.2** is the last stable release below it. Neither is code-signed yet, so the OS will warn on first launch — that's expected.
+The app is **free while it's in beta**. Grab it from the [releases page](https://github.com/amitxm/AIDocPrep/releases).
 
-**macOS** — open the `.dmg` and drag AI DocPrep into Applications (the v2 alpha is Apple Silicon). It isn't notarized yet, so macOS blocks the first launch. Get past it one of these ways:
+**macOS** — download the `.dmg` from the [latest beta](https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1) and drag AI DocPrep into Applications. It's signed and notarized by Apple, so it opens normally — no security warnings, no Terminal workarounds. Apple Silicon only for now.
 
-- Right-click the app and choose **Open** (or **System Settings → Privacy & Security → Open Anyway**).
-- If macOS insists the app is "damaged" and won't open — common on recent versions — clear the quarantine flag from Terminal, then open it normally:
-
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/AI DocPrep.app"
-  ```
-
-- Or sidestep it entirely: downloading the `.dmg` with `curl` instead of a browser never attaches the quarantine flag in the first place.
-
-**Windows** — run the `…-setup.exe`. If SmartScreen flags an unknown publisher, choose **More info → Run anyway**.
+**Windows** — the native v2 build is still in progress; use the [v2 alpha installer](https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.0-alpha.1) or the older [v1.2 release](https://github.com/amitxm/AIDocPrep/releases/tag/v1.2.0). Neither is code-signed yet, so SmartScreen will flag an unknown publisher — choose **More info → Run anyway**.
 
 ### Support the project
 
-AI DocPrep is free and open source. If it saves you tokens or time, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). That funds the code-signing certificates that remove these OS warnings and put the app on the Mac App Store and Microsoft Store.
+AI DocPrep is free to download and use — nothing to pay, no account. If it saves you tokens or time and you want to chip in, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). That funds the code-signing certificates and developer accounts behind the signed builds and the app store releases.
 
 ## Building from source
 
