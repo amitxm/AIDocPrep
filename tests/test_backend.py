@@ -109,15 +109,129 @@ check("pptx baseline = text + slides x 1500", estimate_source_tokens(pptx_path, 
       str(estimate_source_tokens(pptx_path, output_tokens=700)))
 
 # 2c. unsupported types are rejected before reaching any converter
-mp3_path = os.path.join(work, "song.mp3")
-with open(mp3_path, "wb") as f:
-    f.write(b"ID3junkjunkjunk")
-bad_events = []
-bad_outs = convert_files([mp3_path], progress_callback=bad_events.append)
-bad_error = next((e for e in bad_events if e["status"] == "error"), None)
-check("unsupported ext rejected", bad_outs == [] and bad_error is not None
-      and "Unsupported file type" in (bad_error["error"] or ""), str(bad_error and bad_error["error"]))
-os.remove(mp3_path)
+# (mp3/wav/m4a/mp4 would hit markitdown's cloud transcription path; zip is
+# rejected unless explicitly enabled — tested separately in 2e)
+for bad_ext in (".mp3", ".mp4", ".wav", ".m4a", ".zip", ".exe"):
+    bad_path = os.path.join(work, f"blocked{bad_ext}")
+    with open(bad_path, "wb") as f:
+        f.write(b"junkjunkjunkjunk")
+    bad_events = []
+    bad_outs = convert_files([bad_path], progress_callback=bad_events.append)
+    bad_error = next((e for e in bad_events if e["status"] == "error"), None)
+    check(f"unsupported ext rejected: {bad_ext}", bad_outs == [] and bad_error is not None
+          and "Unsupported file type" in (bad_error["error"] or ""), str(bad_error and bad_error["error"]))
+    os.remove(bad_path)
+
+# 2d. newly supported formats
+from backend.converter import convert_to_markdown, SUPPORTED_EXTENSIONS, IMAGE_EXTENSIONS
+import zipfile as _zipfile
+import json as _json
+
+fmt_dir = os.path.join(work, "fmt")
+os.makedirs(fmt_dir)
+
+# minimal EPUB (zip: mimetype + container + opf + one xhtml chapter)
+epub_path = os.path.join(fmt_dir, "book.epub")
+chapter = ('<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml">'
+           "<head><title>Ch1</title></head><body><h1>Chapter One</h1>"
+           "<p>The lighthouse keeper counted the gulls at dawn.</p></body></html>")
+opf = ('<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">'
+       '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test Book</dc:title>'
+       '<dc:identifier id="id">t1</dc:identifier><dc:language>en</dc:language></metadata>'
+       '<manifest><item id="c1" href="ch1.xhtml" media-type="application/xhtml+xml"/></manifest>'
+       '<spine><itemref idref="c1"/></spine></package>')
+container = ('<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+             '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+             "</rootfiles></container>")
+with _zipfile.ZipFile(epub_path, "w") as z:
+    z.writestr("mimetype", "application/epub+zip", compress_type=_zipfile.ZIP_STORED)
+    z.writestr("META-INF/container.xml", container)
+    z.writestr("OEBPS/content.opf", opf)
+    z.writestr("OEBPS/ch1.xhtml", chapter)
+try:
+    epub_md = convert_to_markdown(epub_path)
+    check("epub converts", "lighthouse keeper" in epub_md, epub_md[:120])
+except Exception as e:
+    check("epub converts", False, str(e))
+
+# minimal Jupyter notebook
+ipynb_path = os.path.join(fmt_dir, "analysis.ipynb")
+with open(ipynb_path, "w", encoding="utf-8") as f:
+    _json.dump({"cells": [
+        {"cell_type": "markdown", "metadata": {}, "source": ["# Notebook Title\n", "Findings about churn."]},
+        {"cell_type": "code", "execution_count": 1, "metadata": {}, "outputs": [],
+         "source": ["print('churn_rate')"]},
+    ], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}, f)
+try:
+    nb_md = convert_to_markdown(ipynb_path)
+    check("ipynb converts", "Findings about churn" in nb_md and "churn_rate" in nb_md, nb_md[:120])
+except Exception as e:
+    check("ipynb converts", False, str(e))
+
+# jpg: accepted as a single file (near-empty output until local vision lands)
+from PIL import Image as _Image
+jpg_path = os.path.join(fmt_dir, "photo.jpg")
+_Image.new("RGB", (8, 8), (200, 30, 30)).save(jpg_path)
+try:
+    jpg_md = convert_to_markdown(jpg_path)
+    check("jpg accepted (single file)", isinstance(jpg_md, str), f"{len(jpg_md)} chars")
+except Exception as e:
+    check("jpg accepted (single file)", False, str(e))
+
+# msg/xls: junk bytes now fail with a *conversion* error, not the allowlist
+for accepted_ext in (".msg", ".xls"):
+    p = os.path.join(fmt_dir, f"junk{accepted_ext}")
+    with open(p, "wb") as f:
+        f.write(b"not really this format")
+    try:
+        convert_to_markdown(p)
+        check(f"{accepted_ext} accepted by allowlist", True, "(junk happened to convert)")
+    except ValueError as e:
+        check(f"{accepted_ext} accepted by allowlist", "Unsupported file type" not in str(e), str(e)[:80])
+    except Exception:
+        check(f"{accepted_ext} accepted by allowlist", True, "(conversion error, as expected for junk)")
+
+# scans pick up new formats but not images
+scanned = {os.path.basename(f) for f in scan_folder(fmt_dir)}
+check("scan includes epub/ipynb/msg/xls",
+      {"book.epub", "analysis.ipynb", "junk.msg", "junk.xls"} <= scanned, str(scanned))
+check("scan excludes images", "photo.jpg" not in scanned, str(scanned))
+check("image exts not in SUPPORTED", all(e not in SUPPORTED_EXTENSIONS for e in IMAGE_EXTENSIONS))
+
+# 2e. ZIP: opt-in, filtered, capped
+zip_dir = os.path.join(work, "zips")
+os.makedirs(zip_dir)
+archive = os.path.join(zip_dir, "bundle.zip")
+inner_nested = os.path.join(zip_dir, "nested.zip")
+with _zipfile.ZipFile(inner_nested, "w") as z:
+    z.writestr("deep.txt", "should never be reached")
+with _zipfile.ZipFile(archive, "w") as z:
+    z.writestr("report.html", "<html><body><h1>Zipped Report</h1><p>Email zip.person@example.com inside.</p></body></html>")
+    z.writestr("song.mp3", b"ID3junk")
+    z.write(inner_nested, "nested.zip")
+    z.writestr("sub/notes.txt", "plain text survives")
+
+try:
+    convert_to_markdown(archive)
+    check("zip rejected by default", False, "no exception")
+except ValueError as e:
+    check("zip rejected by default", "Unsupported file type" in str(e), str(e)[:80])
+
+zip_md = convert_to_markdown(archive, allow_zip=True, redact_pii=True, redact_mode="Regex Only")
+check("zip converts when enabled", "Zipped Report" in zip_md and "plain text survives" in zip_md)
+check("zip content is redacted", "[REDACTED_EMAIL]" in zip_md and "zip.person@example.com" not in zip_md)
+check("zip skips blocked inner types", "song.mp3 (unsupported type)" in zip_md)
+check("zip skips nested archives", "nested.zip (nested archive)" in zip_md)
+
+big = os.path.join(zip_dir, "toomany.zip")
+with _zipfile.ZipFile(big, "w") as z:
+    for i in range(201):
+        z.writestr(f"f{i}.txt", "x")
+try:
+    convert_to_markdown(big, allow_zip=True)
+    check("zip entry cap enforced", False, "no exception")
+except ValueError as e:
+    check("zip entry cap enforced", "limit is 200" in str(e), str(e)[:80])
 
 # 3. redaction (regex)
 from backend.converter import redact_pii_content

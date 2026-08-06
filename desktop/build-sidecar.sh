@@ -34,6 +34,7 @@ if [ "$OS_NAME" = "Darwin" ]; then
     --distpath "$STAGE" --workpath "$WORK" \
     "${CODESIGN_ARGS[@]}" \
     --collect-all markitdown --collect-all magika \
+    --hidden-import olefile --hidden-import xlrd \
     --collect-all spacy --collect-all en_core_web_sm \
     --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter \
     --exclude-module matplotlib --exclude-module scipy --exclude-module IPython \
@@ -49,6 +50,7 @@ else
   .venv/bin/pyinstaller --onedir --noconfirm --name docprep-core \
     --distpath "$STAGE" --workpath "$WORK" \
     --collect-all markitdown --collect-all magika \
+    --hidden-import olefile --hidden-import xlrd \
     --collect-all spacy --collect-all en_core_web_sm \
     --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter \
     --exclude-module matplotlib --exclude-module scipy --exclude-module IPython \

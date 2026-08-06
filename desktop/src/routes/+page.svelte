@@ -12,10 +12,14 @@
     { value: "both", label: "Individual + combined file" },
     { value: "combined-only", label: "Combined file only" },
   ];
-  const SUPPORTED = new Set(["docx", "pdf", "pptx", "xlsx", "html", "htm", "vtt"]);
+  const SUPPORTED = new Set(["docx", "pdf", "pptx", "xlsx", "xls", "msg", "epub", "ipynb", "html", "htm", "vtt"]);
+  // Accepted as individual picks but excluded from folder scans until local
+  // image description lands (today an image converts to near-empty Markdown)
+  const PICKABLE_EXTRA = ["jpg", "jpeg"];
 
   const DEFAULT_SETTINGS = {
     outputMode: "both",
+    zip: false,
     redact: false,
     conflict: "keep-both",
     yaml: true,
@@ -131,7 +135,7 @@
   async function browseFiles() {
     const sel = await open({
       multiple: true,
-      filters: [{ name: "Documents", extensions: [...SUPPORTED] }],
+      filters: [{ name: "Documents", extensions: [...SUPPORTED, ...PICKABLE_EXTRA, ...(s.zip ? ["zip"] : [])] }],
     });
     if (sel) addPaths(Array.isArray(sel) ? sel : [sel]);
   }
@@ -164,6 +168,7 @@
     const args = [...items.map((i) => i.path), "--json", "--watchdog", "--output", s.outputMode, "--conflict", s.conflict];
     if (!s.yaml) args.push("--no-yaml");
     if (!s.toc) args.push("--no-toc");
+    if (s.zip) args.push("--allow-zip");
     if (s.redact) {
       args.push("--redact", "--engine", s.engine);
       if (s.engine === "ollama") args.push("--ollama-model", s.ollamaModel);
@@ -324,7 +329,7 @@
         <button onclick={(e) => { e.stopPropagation(); browseFolder(); }}>Choose Folder…</button>
       </div>
       <div class="chips">
-        {#each ["PDF", "DOCX", "PPTX", "XLSX", "HTML", "VTT"] as f}<span class="chip mono">{f}</span>{/each}
+        {#each ["PDF", "DOCX", "PPTX", "XLSX", "XLS", "MSG", "EPUB", "IPYNB", "HTML", "VTT"] as f}<span class="chip mono">{f}</span>{/each}
       </div>
     </section>
   {:else}
@@ -423,6 +428,13 @@
           </select>
         </label>
         <label class="row"><input type="checkbox" bind:checked={s.revealWhenDone} /> Show output in folder when done</label>
+        <label class="row">
+          <input type="checkbox" bind:checked={s.zip} /> Convert ZIP archives
+          <span class="infowrap" tabindex="0">
+            <span class="infoicon mono">i</span>
+            <span class="infopop">Archives can contain anything, so this is off by default. When on: contents are filtered to supported formats, capped at 200 entries / 200 MB, nested archives are skipped, and archives convert only when dropped as files — folder scans don't open them.</span>
+          </span>
+        </label>
 
         <p class="group tag">Markdown</p>
         <label class="row"><input type="checkbox" bind:checked={s.yaml} /> Add YAML frontmatter (Obsidian / Notion)</label>
@@ -512,7 +524,7 @@
   button.big { width: 100%; padding: 13px; font-size: 15px; font-weight: 600; margin-top: 10px; box-shadow: 4px 4px 0 var(--panel); }
   button.small, button.x { padding: 4px 10px; font-size: 11px; }
   button.x { background: none; border: none; color: var(--mut); }
-  .chips { display: flex; gap: 7px; margin-top: 20px; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 20px; max-width: 420px; }
   .chip { font-size: 10px; letter-spacing: 0.1em; border: 1px solid var(--line-strong); color: var(--mut); border-radius: 2px; padding: 3px 8px; background: var(--paper); }
   .pill { background: var(--hl); color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .fail { color: #b3261e; font-size: 12px; }
@@ -582,5 +594,9 @@
   .row select { margin-left: auto; }
   .row.indent { padding-left: 24px; }
   .hint { color: var(--mut); font-size: 10px; letter-spacing: 0.02em; }
+  .infowrap { position: relative; display: inline-flex; cursor: help; outline: none; }
+  .infoicon { width: 15px; height: 15px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--mut); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+  .infopop { display: none; position: absolute; left: 22px; top: -6px; z-index: 5; width: 260px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--line); border-radius: 3px; padding: 9px 11px; font-size: 11px; font-weight: 400; line-height: 1.45; color: var(--ink); }
+  .infowrap:hover .infopop, .infowrap:focus .infopop { display: block; }
   .col { display: flex; flex-direction: column; gap: 6px; font-size: 13px; padding: 8px 0; }
 </style>

@@ -8,12 +8,18 @@ import urllib.request
 import json
 from markitdown import MarkItDown
 
-SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".vtt", ".html", ".htm"]
+SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".xls", ".msg", ".epub", ".ipynb", ".vtt", ".html", ".htm"]
+
+# Accepted when dropped as individual files, but excluded from folder scans:
+# without a local vision model an image converts to near-empty Markdown, and
+# scanning a photo folder would generate hundreds of empty notes. These move
+# into SUPPORTED_EXTENSIONS when local image description lands (.png with it).
+IMAGE_EXTENSIONS = [".jpg", ".jpeg"]
 
 # Everything convert_file will accept. Anything else is rejected up front so
 # no file ever reaches a converter with side effects — markitdown's audio
 # path, for example, sends audio to a cloud speech API when run from source.
-CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
+CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + IMAGE_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
 
 DEFAULT_OLLAMA_PROMPT = (
     "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
@@ -63,7 +69,9 @@ def estimate_tokens(text: str) -> int:
 
 
 # Formats whose raw bytes are text an LLM would actually be fed
-_PLAIN_TEXT_EXTENSIONS = (".html", ".htm", ".vtt", ".txt", ".csv", ".json", ".md")
+_PLAIN_TEXT_EXTENSIONS = (".html", ".htm", ".vtt", ".txt", ".csv", ".json", ".md", ".ipynb")
+# EPUB is a zip of XHTML; the raw representation is the uncompressed markup
+_EPUB_CONTENT_SUFFIXES = (".xhtml", ".html", ".htm")
 # Zip-of-XML Office formats where the XML *is* the content (documents and
 # sheets). PPTX is handled separately: slide DrawingML is mostly geometry, so
 # an XML baseline overstates savings by orders of magnitude on image-heavy
@@ -95,6 +103,14 @@ def estimate_source_tokens(file_path: str, output_tokens: int = 0):
                 for info in z.infolist():
                     if info.filename.endswith((".xml", ".rels")):
                         total += info.file_size  # uncompressed size
+            return max(1, total // 4) if total else None
+        if ext == ".epub":
+            import zipfile
+            total = 0
+            with zipfile.ZipFile(file_path) as z:
+                for info in z.infolist():
+                    if info.filename.lower().endswith(_EPUB_CONTENT_SUFFIXES):
+                        total += info.file_size  # uncompressed markup
             return max(1, total // 4) if total else None
         if ext == ".pptx":
             import re
@@ -323,24 +339,93 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
 
     return text
 
-def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> str:
+# ZIP conversion is opt-in and never delegated to markitdown's archive
+# converter: entries are filtered through the same extension allowlist, capped,
+# and extracted under generated names (the archive's own paths are never used
+# for writing, so zip-slip is structurally impossible). Nested archives skipped.
+ZIP_MAX_ENTRIES = 200
+ZIP_MAX_TOTAL_BYTES = 200 * 1024 * 1024
+ZIP_MAX_ENTRY_BYTES = 50 * 1024 * 1024
+
+
+def _convert_zip_archive(file_path: str) -> str:
+    import zipfile
+    import tempfile
+
+    parts = [f"# Archive: {os.path.basename(file_path)}"]
+    skipped = []
+
+    with zipfile.ZipFile(file_path) as z:
+        infos = [i for i in z.infolist() if not i.is_dir()]
+        if len(infos) > ZIP_MAX_ENTRIES:
+            raise ValueError(f"Archive has {len(infos)} entries; limit is {ZIP_MAX_ENTRIES}")
+        declared_total = sum(i.file_size for i in infos)
+        if declared_total > ZIP_MAX_TOTAL_BYTES:
+            raise ValueError(f"Archive expands to {declared_total // (1024 * 1024)} MB; limit is {ZIP_MAX_TOTAL_BYTES // (1024 * 1024)} MB")
+
+        for info in infos:
+            name = info.filename
+            base = os.path.basename(name)
+            ext = os.path.splitext(base)[1].lower()
+            if not base or base.startswith("~$") or base.startswith("."):
+                continue
+            if ext == ".zip":
+                skipped.append(f"{name} (nested archive)")
+                continue
+            if ext not in CONVERTIBLE_EXTENSIONS:
+                skipped.append(f"{name} (unsupported type)")
+                continue
+            if info.file_size > ZIP_MAX_ENTRY_BYTES:
+                skipped.append(f"{name} (exceeds size cap)")
+                continue
+
+            with tempfile.TemporaryDirectory() as td:
+                safe_path = os.path.join(td, f"entry{ext}")
+                remaining = ZIP_MAX_ENTRY_BYTES
+                with z.open(info) as src, open(safe_path, "wb") as dst:
+                    while True:
+                        chunk = src.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        remaining -= len(chunk)
+                        if remaining < 0:
+                            # header lied about uncompressed size
+                            raise ValueError(f"Archive entry {name} exceeds the size cap while decompressing")
+                        dst.write(chunk)
+                try:
+                    # raw inner conversion; YAML/redaction applied once by the
+                    # caller over the assembled document
+                    text = convert_to_markdown(safe_path)
+                except Exception as e:
+                    skipped.append(f"{name} (conversion failed: {e})")
+                    continue
+
+            parts.append(f"\n---\n## {name}\n\n{text}")
+
+    if skipped:
+        shown = ", ".join(skipped[:20])
+        more = f" and {len(skipped) - 20} more" if len(skipped) > 20 else ""
+        parts.append(f"\n---\n*Skipped entries:* {shown}{more}")
+
+    return "\n".join(parts)
+
+
+def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> str:
     """
-    Converts a single file to Markdown using markitdown (or custom VTT parser).
-    Returns the path to the generated .md file.
+    Converts a single file and returns the Markdown as a string.
+    Writes nothing to disk — callers decide where (or whether) to persist.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    base_name, ext = os.path.splitext(file_path)
-    ext = ext.lower()
-    if ext not in CONVERTIBLE_EXTENSIONS:
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".zip":
+        if not allow_zip:
+            raise ValueError("Unsupported file type: .zip (ZIP conversion is off by default; enable it in Settings)")
+        text_content = _convert_zip_archive(file_path)
+    elif ext not in CONVERTIBLE_EXTENSIONS:
         raise ValueError(f"Unsupported file type: {ext or 'no extension'}")
-    output_path = f"{base_name}.md"
-
-    if not overwrite:
-        output_path = get_unique_filename(output_path)
-
-    if ext == ".vtt":
+    elif ext == ".vtt":
         text_content = parse_vtt(file_path)
     else:
         result = _get_markitdown().convert(file_path)
@@ -351,6 +436,29 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
 
     if redact_pii:
         text_content = redact_pii_content(text_content, mode=redact_mode, ollama_model=ollama_model, custom_prompt=custom_prompt, custom_terms=custom_terms)
+
+    return text_content
+
+
+def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> str:
+    """
+    Converts a single file to Markdown using markitdown (or custom VTT parser).
+    Returns the path to the generated .md file.
+    """
+    text_content = convert_to_markdown(
+        file_path,
+        inject_yaml=inject_yaml,
+        redact_pii=redact_pii,
+        redact_mode=redact_mode,
+        ollama_model=ollama_model,
+        custom_prompt=custom_prompt,
+        custom_terms=custom_terms,
+        allow_zip=allow_zip,
+    )
+
+    output_path = f"{os.path.splitext(file_path)[0]}.md"
+    if not overwrite:
+        output_path = get_unique_filename(output_path)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text_content)
@@ -376,7 +484,7 @@ def scan_folder(folder_path: str, extensions: list[str] = None) -> list[str]:
     return target_files
 
 
-def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> list[str]:
+def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> list[str]:
     """
     Converts a list of files to Markdown in parallel.
 
@@ -397,7 +505,7 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
             # "started" lets UIs show which file is being worked on; heavy
             # files can take a while between completion events
             progress_callback({"file": file_path, "status": "started", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": None, "total": total})
-        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms)
+        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         future_to_file = {

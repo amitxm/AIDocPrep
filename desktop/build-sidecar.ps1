@@ -15,6 +15,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 & .venv\Scripts\pyinstaller.exe --onedir --noconfirm --name docprep-core `
   --distpath $stage --workpath $work `
   --collect-all markitdown --collect-all magika `
+  --hidden-import olefile --hidden-import xlrd `
   --collect-all spacy --collect-all en_core_web_sm `
   --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter `
   --exclude-module matplotlib --exclude-module scipy --exclude-module IPython `

@@ -46,7 +46,7 @@ def _handle_sigint(signum, frame):
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="docprep-core",
-        description="Convert office documents (.docx, .pdf, .pptx, .xlsx, .html, .vtt) to clean Markdown.",
+        description="Convert documents (.docx, .pdf, .pptx, .xlsx, .xls, .msg, .epub, .ipynb, .html, .vtt) to clean Markdown.",
     )
     p.add_argument("paths", nargs="+", help="files and/or folders to convert")
     p.add_argument("--output", choices=OUTPUT_CHOICES, default="individual",
@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="custom term to always redact (repeatable)")
     p.add_argument("--terms-file", default=None, metavar="PATH",
                    help="file with custom terms to redact, one per line")
+    p.add_argument("--allow-zip", action="store_true",
+                   help="convert ZIP archives (contents filtered to supported formats, size-capped)")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
     p.add_argument("--watchdog", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--quiet", action="store_true", help="only print the final summary (human mode)")
@@ -197,6 +199,7 @@ def main(argv=None) -> int:
         ollama_model=args.ollama_model,
         custom_prompt=custom_prompt,
         custom_terms=custom_terms,
+        allow_zip=args.allow_zip,
     )
 
     combined_path = None

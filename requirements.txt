@@ -1,4 +1,8 @@
-markitdown[all]
+# Deliberately NOT markitdown[all]: the all extra pulls cloud-audio
+# transcription (speechrecognition/pydub), YouTube fetching, and Azure Document
+# Intelligence — capabilities this offline tool must not ship. Runtime also
+# enforces an extension allowlist (CONVERTIBLE_EXTENSIONS in backend/converter.py).
+markitdown[docx,pdf,pptx,xlsx,xls,outlook]
 customtkinter
 tkinterdnd2
 PyInstaller

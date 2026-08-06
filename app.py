@@ -35,7 +35,7 @@ ENGINE_DESCRIPTIONS = {
 }
 
 FILE_DIALOG_TYPES = [
-    ("Supported documents", "*.docx *.pdf *.pptx *.xlsx *.vtt *.html *.htm"),
+    ("Supported documents", "*.docx *.pdf *.pptx *.xlsx *.xls *.msg *.epub *.ipynb *.vtt *.html *.htm *.jpg *.jpeg"),
     ("All files", "*.*"),
 ]
 
@@ -243,7 +243,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         chips = ctk.CTkFrame(inner, fg_color="transparent")
         chips.pack(pady=(18, 0))
-        for fmt in ("PDF", "DOCX", "PPTX", "XLSX", "HTML", "VTT"):
+        for fmt in ("PDF", "DOCX", "PPTX", "XLSX", "XLS", "MSG", "EPUB", "IPYNB", "HTML", "VTT"):
             ctk.CTkLabel(chips, text=f" {fmt} ", font=self.font(10),
                          fg_color=("gray88", "gray25"), corner_radius=6,
                          text_color=("gray30", "gray70")).pack(side="left", padx=3)
@@ -502,7 +502,10 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def browse_files(self):
         if self.state_name == "running":
             return
-        paths = filedialog.askopenfilenames(filetypes=FILE_DIALOG_TYPES)
+        dialog_types = FILE_DIALOG_TYPES
+        if self.settings.get("zip", False):
+            dialog_types = [(FILE_DIALOG_TYPES[0][0], FILE_DIALOG_TYPES[0][1] + " *.zip")] + FILE_DIALOG_TYPES[1:]
+        paths = filedialog.askopenfilenames(filetypes=dialog_types)
         if paths:
             self.add_paths(list(paths))
 
@@ -741,6 +744,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 ollama_model=s["ollama_model"],
                 custom_prompt=s["custom_prompt"],
                 custom_terms=s["custom_terms"],
+                allow_zip=s.get("zip", False),
             )
         except Exception as e:
             self.log(f"Conversion failed: {e}")
@@ -917,6 +921,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         conflict_var = ctk.StringVar(value=CONFLICT_LABELS[self.settings["conflict"]])
         open_folder_var = ctk.BooleanVar(value=self.settings["open_folder"])
+        zip_var = ctk.BooleanVar(value=self.settings.get("zip", False))
         yaml_var = ctk.BooleanVar(value=self.settings["yaml"])
         toc_var = ctk.BooleanVar(value=self.settings["toc"])
         engine_var = ctk.StringVar(value=self.settings["redact_engine"])
@@ -940,6 +945,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                           button_hover_color=("gray70", "gray38"),
                           text_color=("black", "white")).pack(side="left")
         checkbox("Open folder when done", open_folder_var)
+        checkbox("Convert ZIP archives (contents filtered to supported formats, size-capped)", zip_var)
 
         # --- Markdown ---
         section("Markdown")
@@ -999,6 +1005,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         def close_settings():
             self.settings["conflict"] = LABEL_TO_CONFLICT.get(conflict_var.get(), "keep_both")
             self.settings["open_folder"] = bool(open_folder_var.get())
+            self.settings["zip"] = bool(zip_var.get())
             self.settings["yaml"] = bool(yaml_var.get())
             self.settings["toc"] = bool(toc_var.get())
             self.settings["redact_engine"] = engine_var.get()

@@ -12,6 +12,7 @@ DEFAULTS = {
     "yaml": True,
     "toc": True,
     "output_mode": "both",            # "individual" | "both" | "combined_only"
+    "zip": False,                     # opt-in: convert ZIP archives (filtered + capped)
     "redact": False,
     "redact_engine": "Regex Only",    # "Regex Only" | "Local NER (spaCy)" | "Local LLM (Ollama)"
     "ollama_model": "llama3",
@@ -32,6 +33,18 @@ def config_dir() -> str:
 
 def config_path() -> str:
     return os.path.join(config_dir(), "settings.json")
+
+
+def cache_dir() -> str:
+    # Cache belongs in local (non-roaming) storage, unlike config_dir
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        return os.path.join(base, APP_NAME, "Cache")
+    elif sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~/Library/Caches"), APP_NAME)
+    else:
+        base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+        return os.path.join(base, "aidocprep")
 
 
 def load_settings() -> dict:
