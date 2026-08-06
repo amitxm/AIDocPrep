@@ -11,8 +11,6 @@ combined_master.md
 *.md
 !README.md
 
-!desktop/SIGNING.md
-!desktop/SIGNING-MACOS.md
 Output/
 
 # Tauri desktop app
