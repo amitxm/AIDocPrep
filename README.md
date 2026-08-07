@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Download free beta</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest">Download free beta</a> ·
   <a href="https://belsonbox.gumroad.com/l/aidocprep">Gumroad</a>
 </p>
 
@@ -109,9 +109,15 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 The app is **free while it's in beta**. Grab it from the [releases page](https://github.com/amitxm/AIDocPrep/releases).
 
-**macOS** — download the `.dmg` from the [latest beta](https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1) and drag AI DocPrep into Applications. It's signed and notarized by Apple, so it opens normally — no security warnings, no Terminal workarounds. Apple Silicon only for now.
+Both builds are code-signed, so they install without security warnings.
 
-**Windows** — the native v2 build is still in progress; use the [v2 alpha installer](https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.0-alpha.1) or the older [v1.2 release](https://github.com/amitxm/AIDocPrep/releases/tag/v1.2.0). Neither is code-signed yet, so SmartScreen will flag an unknown publisher — choose **More info → Run anyway**.
+**macOS** — download the `.dmg` and drag AI DocPrep into Applications. It's signed and notarized by Apple, so it opens normally. Apple Silicon only for now.
+
+**Windows** — run the `.exe` installer.
+
+### Feedback
+
+It's a beta, so bug reports and rough edges are genuinely useful. [Open an issue](https://github.com/amitxm/AIDocPrep/issues/new) — a file that converted badly, a redaction it missed, or anything that felt confusing.
 
 ### Support the project
 

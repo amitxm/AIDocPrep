@@ -66,6 +66,8 @@
   .btn-ink:hover{background:#000;transform:translateY(-1px);color:var(--paper);}
   .btn-ghost{background:transparent;color:var(--ink);}
   .btn-ghost:hover{background:var(--panel);}
+  .btn-hl{background:var(--hl);color:#1c1206;border-color:var(--hl);}
+  .btn-hl:hover{background:#ffd400;transform:translateY(-1px);}
   .nav .btn{padding:9px 16px;}
 
   .hero{padding-top:clamp(44px,6vw,76px);}
@@ -242,13 +244,13 @@
         <h1>Get your documents ready for AI. <mark>Without handing them over.</mark></h1>
         <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, and redacts the private parts. All of it happens on your computer. Nothing gets uploaded.</p>
         <div class="hero-cta">
-          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Download free beta</a>
+          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest">Download free beta</a>
           <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
         </div>
         <div class="hero-note">
           <span>free while in beta</span>
           <span>·</span>
-          <span>signed for macOS</span>
+          <span>signed for Mac &amp; Windows</span>
           <span>·</span>
           <span>open source</span>
           <span>·</span>
@@ -493,14 +495,14 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         <div class="plan feature">
           <div class="kind">Beta</div>
           <div class="amount">Free</div>
-          <div class="desc">Signed and ready to run on macOS. Windows build in progress.</div>
+          <div class="desc">Signed and ready to run on macOS and Windows.</div>
           <ul>
-            <li><span class="tick"></span> Signed and notarized — no security warnings on Mac</li>
+            <li><span class="tick"></span> Signed on both platforms — no security warnings</li>
             <li><span class="tick"></span> One-click install, no account</li>
             <li><span class="tick"></span> Every feature, nothing held back</li>
           </ul>
-          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Download for Mac</a>
-          <p class="fineprint">Apple Silicon · <a href="https://github.com/amitxm/AIDocPrep/releases" rel="noopener" style="color:inherit;text-decoration:underline;">all releases</a> · coming to the Mac App Store and Microsoft Store</p>
+          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest">Download for Mac &amp; Windows</a>
+          <p class="fineprint">macOS (Apple Silicon) and Windows · <a href="https://github.com/amitxm/AIDocPrep/releases" rel="noopener" style="color:inherit;text-decoration:underline;">all releases</a> · coming to the Mac App Store and Microsoft Store</p>
         </div>
         <div class="plan">
           <div class="kind">Build from source</div>
@@ -547,6 +549,19 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
       </div>
     </div>
   </section>
+
+  <section id="feedback" style="background:var(--ink);">
+    <div class="wrap" style="text-align:center;">
+      <span class="tag" style="color:#8B897B;justify-content:center;">feedback</span>
+      <h2 style="color:#fff;margin:14px auto 0;max-width:20ch;">It's a beta. Tell me what breaks.</h2>
+      <p style="color:#B7B5A6;margin:16px auto 0;max-width:52ch;">A file that converted badly, a name the redactor missed, a step that felt confusing — all of it is useful, and it's the whole reason the beta is free.</p>
+      <div class="hero-cta" style="justify-content:center;">
+        <a class="btn btn-hl" href="https://github.com/amitxm/AIDocPrep/issues/new" rel="noopener">Report an issue</a>
+        <a class="btn btn-ghost" href="mailto:feedback@aidocprep.app?subject=AI%20DocPrep%20feedback" style="color:#EDECE4;border-color:rgba(255,255,255,.3);">Email feedback</a>
+      </div>
+      <p style="margin-top:20px;font-family:var(--font-mono);font-size:0.78rem;color:#8B897B;">no account needed to email · GitHub issues are public</p>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -571,6 +586,7 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
+          <a href="#feedback">Feedback</a>
         </div>
         <div class="col">
           <h4>Open source</h4>
@@ -580,8 +596,8 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         </div>
         <div class="col">
           <h4>Get it</h4>
-          <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">macOS</a>
-          <a href="https://github.com/amitxm/AIDocPrep/releases/tag/v2.0.1-beta.1">Windows</a>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest">macOS</a>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest">Windows</a>
           <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Gumroad</a>
         </div>
       </div>
