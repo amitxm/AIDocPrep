@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
+  import { getVersion } from "@tauri-apps/api/app";
   import { open } from "@tauri-apps/plugin-dialog";
   import { Command } from "@tauri-apps/plugin-shell";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -44,6 +45,14 @@
   let revealTarget = $state("");
   let footerMsg = $state("");
   let showSettings = $state(false);
+  // Version comes from tauri.conf.json at runtime so the label can never drift
+  // from the release again ("2.0.1-beta.3" is shown as "v2.0.1 beta 3").
+  let appVersion = $state("");
+  onMount(() => {
+    getVersion()
+      .then((v) => (appVersion = "v" + v.replace(/-(alpha|beta|rc)\.?/, " $1 ")))
+      .catch(() => {});
+  });
   let child = null;
 
   $effect(() => {
@@ -224,6 +233,8 @@
               it.src += ev.source_tokens;
               it.outCmp += ev.tokens;
             }
+            // Images/scanned pages OCR would have read but didn't (OCR off)
+            it.unread = (it.unread || 0) + (ev.unread_images || 0);
           }
           if (it.isDir) {
             const c = it.children.find((x) => x.path === ev.file);
@@ -231,6 +242,7 @@
               c.status = ev.status === "error" ? "error" : "done";
               c.tokens = ev.tokens;
               c.error = ev.error;
+              c.unread = ev.unread_images || 0;
             }
           }
         }
@@ -266,8 +278,17 @@
     child = await cmd.spawn();
   }
 
-  function cancel() {
-    child?.kill();
+  async function cancel() {
+    if (!child) return;
+    footerMsg = "Cancelling…";
+    try {
+      // Needs shell:allow-kill in capabilities/default.json; without it this
+      // rejects and, unawaited, used to fail silently while conversion went on.
+      await child.kill();
+    } catch (e) {
+      console.error("[cancel] kill failed", e);
+      footerMsg = "Cancel failed: " + (e?.message ?? e);
+    }
   }
 
   async function showInFolder() {
@@ -313,7 +334,7 @@
         <path d="M5.5 15.5h7" stroke="#17160F" stroke-width="1.6" stroke-linecap="round" />
       </svg>
       AI DocPrep
-      <span class="tag">v2.0.1 beta 1</span>
+      {#if appVersion}<span class="tag">{appVersion}</span>{/if}
     </span>
     <button class="gear" aria-label="Settings" onclick={() => (showSettings = true)}>&#9881;</button>
   </header>
@@ -363,6 +384,7 @@
             <span class="status mono">&#10003; ~{item.tokens.toLocaleString()} tokens</span>
             {#if rowPct(item)}<span class="pill mono">&#8722;{rowPct(item)}%</span>{/if}
           {/if}
+          {#if item.unread}<span class="unread mono" title="Has text inside images or scanned pages that was not read. Turn on “Read text in images and scanned PDFs” in Settings.">{item.unread} img unread</span>{/if}
           {#if item.errors}<span class="fail mono">{item.errors} failed</span>{/if}
           {#if state === "staged"}<button class="x" onclick={() => removeItem(item)}>&#10005;</button>{/if}
         </li>
@@ -374,6 +396,7 @@
             {:else if c.status === "error"}
               <span class="fail mono" title={c.error}>{(c.error || "failed").slice(0, 48)}</span>
             {:else}
+              {#if c.unread}<span class="unread mono" title="Has text inside images or scanned pages that was not read. Turn on “Read text in images and scanned PDFs” in Settings.">{c.unread} img unread</span>{/if}
               <span class="status mono">~{c.tokens.toLocaleString()} tok</span>
             {/if}
           </li>
@@ -605,5 +628,6 @@
   .infoicon { width: 15px; height: 15px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--mut); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
   .infopop { display: none; position: absolute; left: 22px; top: -6px; z-index: 5; width: 260px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--line); border-radius: 3px; padding: 9px 11px; font-size: 11px; font-weight: 400; line-height: 1.45; color: var(--ink); }
   .infowrap:hover .infopop, .infowrap:focus .infopop { display: block; }
+  .unread { color: var(--mut); font-size: 11px; margin-right: 8px; cursor: help; border-bottom: 1px dotted var(--line-strong); }
   .col { display: flex; flex-direction: column; gap: 6px; font-size: 13px; padding: 8px 0; }
 </style>

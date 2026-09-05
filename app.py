@@ -730,7 +730,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             if event["status"] == "error":
                 self.log(f"Error: {event['file']} — {event['error']}")
             else:
-                self.log(f"Converted {event['output']} (~{event['tokens']:,} tokens)")
+                unread = event.get("unread_images") or 0
+                note = f" — {unread} image{'s' if unread != 1 else ''} not read (OCR is off)" if unread else ""
+                self.log(f"Converted {event['output']} (~{event['tokens']:,} tokens){note}")
 
         try:
             outputs = convert_files(

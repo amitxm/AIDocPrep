@@ -454,6 +454,13 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
                 found = ocr_mod.ocr_embedded_images(file_path)
                 if found:
                     text_content = (text_content or "").rstrip() + found
+        elif ext in (".pdf", ".pptx", ".docx", ".xlsx"):
+            # OCR off: tell the reader which files hold text we didn't read, so a
+            # deck of screenshots doesn't look complete when it isn't.
+            from backend import ocr as ocr_mod
+            unread = ocr_mod.count_unread_images(file_path, text_content)
+            if unread:
+                text_content = (text_content or "").rstrip() + ocr_mod.unread_images_note(unread, ext)
 
     if inject_yaml:
         text_content = generate_yaml_frontmatter(file_path) + text_content
@@ -547,17 +554,23 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
 
             file_path = future_to_file[future]
             done_count += 1
-            event = {"file": file_path, "status": "done", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": done_count, "total": total}
+            event = {"file": file_path, "status": "done", "output": None, "tokens": 0, "source_tokens": None, "unread_images": 0, "error": None, "done": done_count, "total": total}
             try:
                 out_path = future.result()
                 converted_files.append(out_path)
                 event["output"] = out_path
+                out_text = ""
                 try:
                     with open(out_path, "r", encoding="utf-8") as f:
-                        event["tokens"] = estimate_tokens(f.read())
+                        out_text = f.read()
+                    event["tokens"] = estimate_tokens(out_text)
                 except OSError:
                     pass
                 event["source_tokens"] = estimate_source_tokens(file_path, output_tokens=event["tokens"])
+                if not ocr and os.path.splitext(file_path)[1].lower() in (".pdf", ".pptx", ".docx", ".xlsx"):
+                    # Lets UIs flag which files in a batch hold text OCR would have read
+                    from backend import ocr as ocr_mod
+                    event["unread_images"] = ocr_mod.count_unread_images(file_path, out_text)
             except Exception as e:
                 event["status"] = "error"
                 event["error"] = str(e)

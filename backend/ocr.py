@@ -135,6 +135,59 @@ def ocr_pdf(file_path: str, dpi: int = 200, progress=None) -> str:
     return "".join(parts)
 
 
+def count_unread_images(file_path: str, extracted_text: str = "") -> int:
+    """Cheap check (no OCR) for content that OCR *would* read but that is being
+    skipped because OCR is off. Returns an approximate count so the UI can flag
+    which files in a batch would benefit from turning OCR on:
+
+      - pptx/docx/xlsx: embedded images larger than an icon
+      - pdf: page count when the text layer is thin (i.e. looks scanned), else 0
+
+    Never raises — detection must not break a normal conversion.
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    try:
+        if ext in (".pptx", ".docx", ".xlsx"):
+            from PIL import Image
+            n = 0
+            with zipfile.ZipFile(file_path) as z:
+                for name in z.namelist():
+                    if "/media/" not in name or not name.lower().endswith(IMAGE_MEDIA_SUFFIXES):
+                        continue
+                    try:
+                        with Image.open(io.BytesIO(z.read(name))) as im:
+                            if im.width * im.height >= MIN_PIXELS:
+                                n += 1
+                    except Exception:
+                        continue
+            return n
+        if ext == ".pdf" and pdf_text_layer_is_thin(file_path, extracted_text):
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(file_path)
+            try:
+                return len(doc)
+            finally:
+                doc.close()
+    except Exception:
+        return 0
+    return 0
+
+
+def unread_images_note(count: int, ext: str) -> str:
+    """A short Markdown note appended when images/scanned pages go unread."""
+    if count <= 0:
+        return ""
+    if ext == ".pdf":
+        what = f"{count} page{'s' if count != 1 else ''} with no text layer (looks scanned)"
+    else:
+        what = f"{count} embedded image{'s' if count != 1 else ''}"
+    return (
+        "\n\n---\n"
+        f"> **Note:** this file has {what} that were not read. "
+        'Enable "Read text in images and scanned PDFs" in Settings to extract the text.\n'
+    )
+
+
 def ocr_embedded_images(file_path: str, progress=None) -> str:
     """OCRs images embedded in an OOXML file (pptx/docx/xlsx media parts).
 

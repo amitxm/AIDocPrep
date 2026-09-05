@@ -282,21 +282,51 @@ else:
           ocr_mod.pdf_text_layer_is_thin(pdf_path, ""))
 
     # embedded-image OCR dedupes repeated logos
+    # a real deck (python-pptx), not a bare zip: markitdown must be able to
+    # convert it. Three byte-distinct images (python-pptx dedupes identical
+    # blobs) carrying the same text, so the logo-dedupe check is meaningful.
+    from pptx import Presentation
+    from pptx.util import Inches
+    from PIL import PngImagePlugin as _Png
+    import io as _io
     deck = os.path.join(ocr_dir, "deck.pptx")
-    with _zipfile.ZipFile(deck, "w") as z:
-        z.writestr("[Content_Types].xml", "<Types/>")
-        buf = io.BytesIO() if False else None
-        import io as _io
-        for n in range(3):
-            b = _io.BytesIO()
-            logo = _Im.new("RGB", (500, 160), "white")
-            _Dr.Draw(logo).text((20, 60), "ACMECORP LOGO", fill="black")
-            logo.save(b, format="PNG")
-            z.writestr(f"ppt/media/image{n}.png", b.getvalue())
+    prs = Presentation()
+    logo = _Im.new("RGB", (500, 160), "white")
+    _Dr.Draw(logo).text((20, 60), "ACMECORP LOGO", fill="black")
+    for n in range(3):
+        # identical pixels (so OCR reads the same text) but distinct bytes via
+        # a metadata chunk, so python-pptx keeps three separate media parts
+        meta = _Png.PngInfo(); meta.add_text("copy", str(n))
+        b = _io.BytesIO(); logo.save(b, format="PNG", pnginfo=meta); b.seek(0)
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        slide.shapes.add_picture(b, Inches(1), Inches(1))
+    prs.save(deck)
     found = ocr_mod.ocr_embedded_images(deck)
     check("embedded-image OCR finds text", "ACME" in found.upper().replace(" ", ""), repr(found[:80]))
     check("repeated logo emitted once", found.upper().count("ACMECORP") <= 1,
           f"count={found.upper().count('ACMECORP')}")
+
+    # OCR off: the reader is told which files hold unread images, and the
+    # conversion event carries a count so a UI can badge them in a batch
+    check("unread-image count (deck with 3 images)", ocr_mod.count_unread_images(deck) == 3,
+          str(ocr_mod.count_unread_images(deck)))
+    icons_only = os.path.join(ocr_dir, "icons.pptx")
+    with _zipfile.ZipFile(icons_only, "w") as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        b = _io.BytesIO(); _Im.new("RGB", (24, 24), "white").save(b, format="PNG")
+        z.writestr("ppt/media/image0.png", b.getvalue())
+    check("icons don't count as unread images", ocr_mod.count_unread_images(icons_only) == 0)
+    check("scanned-looking PDF counts its pages", ocr_mod.count_unread_images(pdf_path, "") == 3,
+          str(ocr_mod.count_unread_images(pdf_path, "")))
+    check("text-layer PDF counts nothing", ocr_mod.count_unread_images(pdf_path, "x" * 5000) == 0)
+    note_md = convert_to_markdown(deck)                       # OCR off
+    check("OCR-off output carries the unread-images note", "3 embedded images that were not read" in note_md,
+          repr(note_md[-160:]))
+    check("OCR-on output has no such note", "were not read" not in convert_to_markdown(deck, ocr=True))
+    ev_unread = []
+    convert_files([deck], progress_callback=ev_unread.append, overwrite=True)
+    done_ev = next(e for e in ev_unread if e["status"] == "done")
+    check("event carries unread_images", done_ev.get("unread_images") == 3, str(done_ev.get("unread_images")))
 
 # 3. redaction (regex)
 from backend.converter import redact_pii_content
