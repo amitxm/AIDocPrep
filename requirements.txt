@@ -7,3 +7,9 @@ customtkinter
 tkinterdnd2
 PyInstaller
 spacy
+
+# On-device OCR (opt-in at runtime): PP-OCRv4 ONNX models ship inside the
+# rapidocr wheel, so nothing is downloaded at run time. pypdfium2 rasterizes
+# scanned PDF pages. onnxruntime is already present via magika.
+rapidocr-onnxruntime
+pypdfium2

@@ -13,13 +13,11 @@
     { value: "combined-only", label: "Combined file only" },
   ];
   const SUPPORTED = new Set(["docx", "pdf", "pptx", "xlsx", "xls", "msg", "epub", "ipynb", "html", "htm", "vtt"]);
-  // Accepted as individual picks but excluded from folder scans until local
-  // image description lands (today an image converts to near-empty Markdown)
-  const PICKABLE_EXTRA = ["jpg", "jpeg"];
 
   const DEFAULT_SETTINGS = {
     outputMode: "both",
     zip: false,
+    ocr: false,
     redact: false,
     conflict: "keep-both",
     yaml: true,
@@ -135,7 +133,7 @@
   async function browseFiles() {
     const sel = await open({
       multiple: true,
-      filters: [{ name: "Documents", extensions: [...SUPPORTED, ...PICKABLE_EXTRA, ...(s.zip ? ["zip"] : [])] }],
+      filters: [{ name: "Documents", extensions: [...SUPPORTED, ...(s.zip ? ["zip"] : [])] }],
     });
     if (sel) addPaths(Array.isArray(sel) ? sel : [sel]);
   }
@@ -169,6 +167,7 @@
     if (!s.yaml) args.push("--no-yaml");
     if (!s.toc) args.push("--no-toc");
     if (s.zip) args.push("--allow-zip");
+    if (s.ocr) args.push("--ocr");
     if (s.redact) {
       args.push("--redact", "--engine", s.engine);
       if (s.engine === "ollama") args.push("--ollama-model", s.ollamaModel);
@@ -433,6 +432,14 @@
           <span class="infowrap" tabindex="0">
             <span class="infoicon mono">i</span>
             <span class="infopop">Archives can contain anything, so this is off by default. When on: contents are filtered to supported formats, capped at 200 entries / 200 MB, nested archives are skipped, and archives convert only when dropped as files — folder scans don't open them.</span>
+          </span>
+        </label>
+
+        <label class="row">
+          <input type="checkbox" bind:checked={s.ocr} /> Read text in images and scanned PDFs
+          <span class="infowrap" tabindex="0">
+            <span class="infoicon mono">i</span>
+            <span class="infopop">Runs on-device OCR so screenshots in slides and scanned PDFs stop being invisible. Off by default because it's far slower — seconds per image, and a picture-heavy deck can take minutes. PDFs that already contain text are untouched. Image files convert when dropped directly; folder scans still skip them.</span>
           </span>
         </label>
 

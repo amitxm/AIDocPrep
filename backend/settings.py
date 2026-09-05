@@ -13,6 +13,7 @@ DEFAULTS = {
     "toc": True,
     "output_mode": "both",            # "individual" | "both" | "combined_only"
     "zip": False,                     # opt-in: convert ZIP archives (filtered + capped)
+    "ocr": False,                     # opt-in: OCR scanned PDFs and images in documents
     "redact": False,
     "redact_engine": "Regex Only",    # "Regex Only" | "Local NER (spaCy)" | "Local LLM (Ollama)"
     "ollama_model": "llama3",

@@ -123,7 +123,7 @@ for bad_ext in (".mp3", ".mp4", ".wav", ".m4a", ".zip", ".exe"):
     os.remove(bad_path)
 
 # 2d. newly supported formats
-from backend.converter import convert_to_markdown, SUPPORTED_EXTENSIONS, IMAGE_EXTENSIONS
+from backend.converter import convert_to_markdown, SUPPORTED_EXTENSIONS, IMAGE_EXTENSIONS, CONVERTIBLE_EXTENSIONS
 import zipfile as _zipfile
 import json as _json
 
@@ -168,15 +168,23 @@ try:
 except Exception as e:
     check("ipynb converts", False, str(e))
 
-# jpg: accepted as a single file (near-empty output until local vision lands)
+# images: rejected with a specific message rather than silently writing an
+# empty .md (markitdown yields no text without a vision model)
 from PIL import Image as _Image
 jpg_path = os.path.join(fmt_dir, "photo.jpg")
 _Image.new("RGB", (8, 8), (200, 30, 30)).save(jpg_path)
-try:
-    jpg_md = convert_to_markdown(jpg_path)
-    check("jpg accepted (single file)", isinstance(jpg_md, str), f"{len(jpg_md)} chars")
-except Exception as e:
-    check("jpg accepted (single file)", False, str(e))
+png_path = os.path.join(fmt_dir, "shot.png")
+_Image.new("RGB", (8, 8), (30, 60, 200)).save(png_path)
+for img in (jpg_path, png_path):
+    label = os.path.splitext(img)[1]
+    try:
+        convert_to_markdown(img)
+        check(f"image rejected with actionable message: {label}", False, "converted instead of raising")
+    except ValueError as e:
+        check(f"image rejected with actionable message: {label}",
+              "enable" in str(e).lower(), str(e))
+check("no .md written for images",
+      not os.path.exists(os.path.splitext(jpg_path)[0] + ".md"))
 
 # msg/xls: junk bytes now fail with a *conversion* error, not the allowlist
 for accepted_ext in (".msg", ".xls"):
@@ -195,8 +203,8 @@ for accepted_ext in (".msg", ".xls"):
 scanned = {os.path.basename(f) for f in scan_folder(fmt_dir)}
 check("scan includes epub/ipynb/msg/xls",
       {"book.epub", "analysis.ipynb", "junk.msg", "junk.xls"} <= scanned, str(scanned))
-check("scan excludes images", "photo.jpg" not in scanned, str(scanned))
-check("image exts not in SUPPORTED", all(e not in SUPPORTED_EXTENSIONS for e in IMAGE_EXTENSIONS))
+check("scan excludes images", "photo.jpg" not in scanned and "shot.png" not in scanned, str(scanned))
+check("image exts not convertible", all(e not in CONVERTIBLE_EXTENSIONS for e in IMAGE_EXTENSIONS))
 
 # 2e. ZIP: opt-in, filtered, capped
 zip_dir = os.path.join(work, "zips")
@@ -232,6 +240,63 @@ try:
     check("zip entry cap enforced", False, "no exception")
 except ValueError as e:
     check("zip entry cap enforced", "limit is 200" in str(e), str(e)[:80])
+
+# 2f. OCR (opt-in). Skipped when the OCR extras aren't installed.
+from backend import ocr as ocr_mod
+if not ocr_mod.is_available():
+    print("[SKIP] OCR tests — rapidocr/pypdfium2 not installed")
+else:
+    ocr_dir = os.path.join(work, "ocr")
+    os.makedirs(ocr_dir)
+    # an image whose ONLY content is rendered text
+    from PIL import Image as _Im, ImageDraw as _Dr
+    shot = os.path.join(ocr_dir, "screenshot.png")
+    im = _Im.new("RGB", (900, 220), "white")
+    _Dr.Draw(im).text((30, 70), "QUARTERLY REVENUE 42817", fill="black")
+    im.save(shot)
+
+    # off by default: still refuses images, with the vision-model message
+    try:
+        convert_to_markdown(shot)
+        check("image still refused when OCR off", False, "converted unexpectedly")
+    except ValueError as e:
+        check("image still refused when OCR off", "enable" in str(e).lower(), str(e)[:60])
+
+    # on: extracts the text
+    text = convert_to_markdown(shot, ocr=True)
+    check("OCR reads text from an image", "42817" in text.replace(" ", ""), repr(text[:80]))
+
+    # tiny images are skipped as icons, not OCR'd
+    icon = os.path.join(ocr_dir, "icon.png")
+    _Im.new("RGB", (24, 24), "white").save(icon)
+    try:
+        convert_to_markdown(icon, ocr=True)
+        check("tiny icon yields no text", False, "expected no-text error")
+    except ValueError as e:
+        check("tiny icon yields no text", "No readable text" in str(e), str(e)[:60])
+
+    # a PDF that already has a text layer must NOT be re-OCR'd
+    check("text-layer PDF not treated as scanned",
+          not ocr_mod.pdf_text_layer_is_thin(pdf_path, "x" * 5000))
+    check("empty-text PDF treated as scanned",
+          ocr_mod.pdf_text_layer_is_thin(pdf_path, ""))
+
+    # embedded-image OCR dedupes repeated logos
+    deck = os.path.join(ocr_dir, "deck.pptx")
+    with _zipfile.ZipFile(deck, "w") as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        buf = io.BytesIO() if False else None
+        import io as _io
+        for n in range(3):
+            b = _io.BytesIO()
+            logo = _Im.new("RGB", (500, 160), "white")
+            _Dr.Draw(logo).text((20, 60), "ACMECORP LOGO", fill="black")
+            logo.save(b, format="PNG")
+            z.writestr(f"ppt/media/image{n}.png", b.getvalue())
+    found = ocr_mod.ocr_embedded_images(deck)
+    check("embedded-image OCR finds text", "ACME" in found.upper().replace(" ", ""), repr(found[:80]))
+    check("repeated logo emitted once", found.upper().count("ACMECORP") <= 1,
+          f"count={found.upper().count('ACMECORP')}")
 
 # 3. redaction (regex)
 from backend.converter import redact_pii_content

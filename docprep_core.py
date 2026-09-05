@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="custom term to always redact (repeatable)")
     p.add_argument("--terms-file", default=None, metavar="PATH",
                    help="file with custom terms to redact, one per line")
+    p.add_argument("--ocr", action="store_true",
+                   help="OCR scanned PDFs and images embedded in documents (slow; off by default)")
     p.add_argument("--allow-zip", action="store_true",
                    help="convert ZIP archives (contents filtered to supported formats, size-capped)")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
@@ -200,6 +202,7 @@ def main(argv=None) -> int:
         custom_prompt=custom_prompt,
         custom_terms=custom_terms,
         allow_zip=args.allow_zip,
+        ocr=args.ocr,
     )
 
     combined_path = None

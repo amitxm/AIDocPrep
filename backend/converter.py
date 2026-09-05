@@ -10,16 +10,20 @@ from markitdown import MarkItDown
 
 SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".xls", ".msg", ".epub", ".ipynb", ".vtt", ".html", ".htm"]
 
-# Accepted when dropped as individual files, but excluded from folder scans:
-# without a local vision model an image converts to near-empty Markdown, and
-# scanning a photo folder would generate hundreds of empty notes. These move
-# into SUPPORTED_EXTENSIONS when local image description lands (.png with it).
-IMAGE_EXTENSIONS = [".jpg", ".jpeg"]
+# Images convert only when OCR is enabled (see backend/ocr.py); without it an
+# image yields no text, so converting one would silently write an empty file.
+# They stay out of folder scans even with OCR on — a photo folder would mean
+# minutes of OCR for mostly empty results. Drop image files directly instead.
+IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tif", ".tiff"]
+
+IMAGE_UNSUPPORTED_MESSAGE = (
+    "Images need OCR — enable \"Read text in images and scanned PDFs\" in Settings"
+)
 
 # Everything convert_file will accept. Anything else is rejected up front so
 # no file ever reaches a converter with side effects — markitdown's audio
 # path, for example, sends audio to a cloud speech API when run from source.
-CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + IMAGE_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
+CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
 
 DEFAULT_OLLAMA_PROMPT = (
     "You are an offline PII redaction assistant. Your task is to redact all personally identifiable information (PII) "
@@ -410,7 +414,7 @@ def _convert_zip_archive(file_path: str) -> str:
     return "\n".join(parts)
 
 
-def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> str:
+def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> str:
     """
     Converts a single file and returns the Markdown as a string.
     Writes nothing to disk — callers decide where (or whether) to persist.
@@ -423,6 +427,13 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
         if not allow_zip:
             raise ValueError("Unsupported file type: .zip (ZIP conversion is off by default; enable it in Settings)")
         text_content = _convert_zip_archive(file_path)
+    elif ext in IMAGE_EXTENSIONS:
+        if not ocr:
+            raise ValueError(IMAGE_UNSUPPORTED_MESSAGE)
+        from backend import ocr as ocr_mod
+        text_content = ocr_mod.ocr_image_file(file_path)
+        if not text_content:
+            raise ValueError("No readable text found in this image")
     elif ext not in CONVERTIBLE_EXTENSIONS:
         raise ValueError(f"Unsupported file type: {ext or 'no extension'}")
     elif ext == ".vtt":
@@ -430,6 +441,19 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
     else:
         result = _get_markitdown().convert(file_path)
         text_content = result.text_content
+
+        if ocr:
+            from backend import ocr as ocr_mod
+            # Scanned PDFs have no text layer to extract; OCR the pages instead
+            if ext == ".pdf" and ocr_mod.pdf_text_layer_is_thin(file_path, text_content):
+                scanned = ocr_mod.ocr_pdf(file_path)
+                if scanned:
+                    text_content = (text_content or "").rstrip() + scanned
+            # Slides and documents often carry their content inside screenshots
+            elif ext in (".pptx", ".docx", ".xlsx"):
+                found = ocr_mod.ocr_embedded_images(file_path)
+                if found:
+                    text_content = (text_content or "").rstrip() + found
 
     if inject_yaml:
         text_content = generate_yaml_frontmatter(file_path) + text_content
@@ -440,7 +464,7 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
     return text_content
 
 
-def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> str:
+def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> str:
     """
     Converts a single file to Markdown using markitdown (or custom VTT parser).
     Returns the path to the generated .md file.
@@ -454,6 +478,7 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
         custom_prompt=custom_prompt,
         custom_terms=custom_terms,
         allow_zip=allow_zip,
+        ocr=ocr,
     )
 
     output_path = f"{os.path.splitext(file_path)[0]}.md"
@@ -484,7 +509,7 @@ def scan_folder(folder_path: str, extensions: list[str] = None) -> list[str]:
     return target_files
 
 
-def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False) -> list[str]:
+def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> list[str]:
     """
     Converts a list of files to Markdown in parallel.
 
@@ -505,7 +530,7 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
             # "started" lets UIs show which file is being worked on; heavy
             # files can take a while between completion events
             progress_callback({"file": file_path, "status": "started", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": None, "total": total})
-        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip)
+        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip, ocr=ocr)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         future_to_file = {

@@ -16,6 +16,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
   --distpath $stage --workpath $work `
   --collect-all markitdown --collect-all magika `
   --hidden-import olefile --hidden-import xlrd `
+  --collect-all rapidocr_onnxruntime --collect-all pypdfium2 `
   --collect-all spacy --collect-all en_core_web_sm `
   --exclude-module customtkinter --exclude-module tkinterdnd2 --exclude-module tkinter `
   --exclude-module matplotlib --exclude-module scipy --exclude-module IPython `
@@ -33,6 +34,10 @@ if (Test-Path "$bin\_internal") { Remove-Item "$bin\_internal" -Recurse -Force }
 # Place the exe (triple-named for Tauri) and its deps folder side by side
 Move-Item "$stage\docprep-core\docprep-core.exe" "$bin\docprep-core-$triple.exe"
 Move-Item "$stage\docprep-core\_internal" "$bin\_internal"
+
+# opencv-python ships a ~30 MB ffmpeg DLL for video capture that OCR never
+# loads (verified: cv2 imports and RapidOCR runs without it). Drop it.
+Get-ChildItem "$bin\_internal\cv2" -Filter "opencv_videoio_ffmpeg*.dll" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 Remove-Item $stage -Recurse -Force
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue

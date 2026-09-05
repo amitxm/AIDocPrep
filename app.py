@@ -35,7 +35,7 @@ ENGINE_DESCRIPTIONS = {
 }
 
 FILE_DIALOG_TYPES = [
-    ("Supported documents", "*.docx *.pdf *.pptx *.xlsx *.xls *.msg *.epub *.ipynb *.vtt *.html *.htm *.jpg *.jpeg"),
+    ("Supported documents", "*.docx *.pdf *.pptx *.xlsx *.xls *.msg *.epub *.ipynb *.vtt *.html *.htm"),
     ("All files", "*.*"),
 ]
 
@@ -745,6 +745,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 custom_prompt=s["custom_prompt"],
                 custom_terms=s["custom_terms"],
                 allow_zip=s.get("zip", False),
+                ocr=s.get("ocr", False),
             )
         except Exception as e:
             self.log(f"Conversion failed: {e}")
@@ -922,6 +923,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         conflict_var = ctk.StringVar(value=CONFLICT_LABELS[self.settings["conflict"]])
         open_folder_var = ctk.BooleanVar(value=self.settings["open_folder"])
         zip_var = ctk.BooleanVar(value=self.settings.get("zip", False))
+        ocr_var = ctk.BooleanVar(value=self.settings.get("ocr", False))
         yaml_var = ctk.BooleanVar(value=self.settings["yaml"])
         toc_var = ctk.BooleanVar(value=self.settings["toc"])
         engine_var = ctk.StringVar(value=self.settings["redact_engine"])
@@ -946,6 +948,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                           text_color=("black", "white")).pack(side="left")
         checkbox("Open folder when done", open_folder_var)
         checkbox("Convert ZIP archives (contents filtered to supported formats, size-capped)", zip_var)
+        checkbox("Read text in images and scanned PDFs (OCR — much slower)", ocr_var)
 
         # --- Markdown ---
         section("Markdown")
@@ -1006,6 +1009,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             self.settings["conflict"] = LABEL_TO_CONFLICT.get(conflict_var.get(), "keep_both")
             self.settings["open_folder"] = bool(open_folder_var.get())
             self.settings["zip"] = bool(zip_var.get())
+            self.settings["ocr"] = bool(ocr_var.get())
             self.settings["yaml"] = bool(yaml_var.get())
             self.settings["toc"] = bool(toc_var.get())
             self.settings["redact_engine"] = engine_var.get()
