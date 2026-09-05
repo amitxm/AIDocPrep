@@ -5,7 +5,7 @@
 <h1 align="center">AI DocPrep</h1>
 
 <p align="center">
-  Convert PDFs, Word docs, decks, and spreadsheets into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
+  Convert PDFs, Word docs, decks, spreadsheets, ebooks, and more into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
 </p>
 
 <p align="center">
@@ -36,6 +36,8 @@ Office files are bloated with formatting metadata the model never needs. A `.doc
 ## What it does
 
 - **Drag & drop queue.** Drop any mix of files and folders anywhere on the window; convert the whole batch with one click.
+- **Every office format.** Word, PDF, PowerPoint, Excel (including legacy `.xls`), Outlook `.msg`, EPUB, Jupyter notebooks, HTML, VTT transcripts, and plain text. ZIP archives too, as an opt-in: contents are filtered to supported types and size-capped.
+- **Reads the text inside images (opt-in).** On-device OCR recovers the words in screenshot-heavy slides, scanned PDFs, and image files — nothing downloaded, nothing uploaded. Off by default because it's slower; PDFs that already contain text are never re-OCR'd.
 - **Token counts and savings.** Every file (and the batch total) shows an estimated token count and the percentage saved versus the raw source.
 - **Flexible output.** Individual `.md` files, individual plus a combined master file, or the combined file only.
 - **Redaction built in.** Three engines, all local: regex patterns, on-device NER, or a local LLM through Ollama.
@@ -59,22 +61,22 @@ python docprep_core.py ./research report.docx --output combined-only --redact
 python docprep_core.py ./docs --json
 ```
 
-Every option is a flag: output mode, conflict policy, YAML/TOC toggles, redaction engine and model, custom terms and prompt files. Exit codes: `0` ok, `1` partial failures, `2` no input, `130` cancelled. Run `--help` for the full list.
+Every option is a flag: output mode, conflict policy, YAML/TOC toggles, redaction engine and model, custom terms and prompt files, `--ocr`, `--allow-zip`. Exit codes: `0` ok, `1` partial failures, `2` no input, `130` cancelled. Run `--help` for the full list.
 
 ## How it's built
 
 ```
-backend/          Python engine: markitdown conversion, redaction, combining, settings
+backend/          Python engine: markitdown conversion, OCR, redaction, combining, settings
 docprep_core.py   Headless CLI wrapping the engine; emits JSON-lines events
-app.py            Current shipping GUI (CustomTkinter)
-desktop/          Next-generation app: Tauri 2 + Svelte 5, runs docprep-core as a sidecar
+desktop/          The app: Tauri 2 + Svelte 5, runs docprep-core as a signed sidecar
+app.py            Legacy 1.x GUI (CustomTkinter) — still runs, no longer the shipped app
 site/             aidocprep.app marketing page (static, served via Cloudflare)
 tests/            Backend and GUI test suites
 ```
 
-Conversion is [Microsoft's MarkItDown](https://github.com/microsoft/markitdown) with a purpose-built converter per format, run in parallel across ~75% of CPU cores. Office temp/lock files (`~$…`) are skipped.
+Conversion is [Microsoft's MarkItDown](https://github.com/microsoft/markitdown) with a purpose-built converter per format, run in parallel across ~75% of CPU cores. Only the extras for the formats above are installed, and anything else is rejected before it reaches a converter. Office temp/lock files (`~$…`) are skipped. The optional OCR is [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR PP-OCRv4 models on ONNX Runtime), bundled with the app so it works offline.
 
-**Token math, so you can audit the claims:** estimates use ~4 characters per token (within roughly ±15% for English). Savings baselines are honest per format — text formats compare against raw bytes; Word and Excel files against their uncompressed XML (there, the XML is the content); PDFs and PowerPoint decks against extracted text plus ~1,500 tokens per page or slide, matching what providers charge for raw uploads. Deck DrawingML is deliberately not used as a baseline — it's mostly geometry, and would overstate savings by orders of magnitude. Where no defensible baseline exists, no savings are shown.
+**Token math, so you can audit the claims:** estimates use ~4 characters per token (within roughly ±15% for English). Savings baselines are honest per format — text formats compare against raw bytes; Word and Excel files against their uncompressed XML (there, the XML is the content), EPUBs against their uncompressed XHTML; PDFs and PowerPoint decks against extracted text plus ~1,500 tokens per page or slide, matching what providers charge for raw uploads. Deck DrawingML is deliberately not used as a baseline — it's mostly geometry, and would overstate savings by orders of magnitude. Where no defensible baseline exists, no savings are shown.
 
 **Redaction engines:** regex patterns always run first (emails, SSNs, credit cards, phone numbers, private keys, AWS/OpenAI/Slack tokens, credential assignments, connection-string passwords, IP/MAC addresses). Optionally add on-device NER (bundled spaCy `en_core_web_sm` — names, organizations, places) or a context-aware pass through your local Ollama server, chunked and serialized so the server isn't flooded.
 
@@ -125,26 +127,25 @@ AI DocPrep is free to download and use — nothing to pay, no account. If it sav
 
 ## Building from source
 
-Prerequisites: Python 3.11+.
+Prerequisites: Python 3.11+ for the engine; Node 20+ and a stable Rust toolchain for the desktop app.
 
 ```bash
 git clone https://github.com/amitxm/AIDocPrep.git
 cd AIDocPrep
 
+# Engine
 python -m venv .venv
 source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm  # optional: the on-device NER redaction engine
-
-# Run the app
-python app.py
-
-# Run the tests
+python -m spacy download en_core_web_sm  # on-device NER engine; needed for sidecar builds
 python tests/test_backend.py
-python tests/test_gui.py      # needs a display
+
+# Desktop app: build the engine sidecar, then run the app in dev mode
+bash desktop/build-sidecar.sh          # Windows: .\desktop\build-sidecar.ps1
+cd desktop && npm install && npm run tauri dev
 ```
 
-Release builds: `.\build_win.ps1` then compile `installer.iss` with Inno Setup (Windows), or `bash build_mac.sh` (macOS). The Tauri app in `desktop/` has its own workflow: build the sidecar with `desktop/build-sidecar.ps1` (or `.sh`), then `npm run tauri dev`.
+Release builds run from `desktop/`: `npm run tauri build -- --bundles nsis` (Windows) or `npm run tauri build` (macOS). Code signing is configured on the release machines and is not part of the repo. The legacy 1.x GUI still runs with `python app.py` (and `tests/test_gui.py`, which needs a display), packaged by `build_win.ps1` / `build_mac.sh`, but it is not the shipped app.
 
 ## License
 

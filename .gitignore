@@ -25,3 +25,6 @@ desktop/src-tauri/_sidecar_work/
 
 # Local-only signing config (never commit: machine paths + signing account)
 desktop/src-tauri/tauri.signing.local.json
+
+# Local AI-assistant state (never commit)
+.claude/
