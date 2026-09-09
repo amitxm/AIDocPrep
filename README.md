@@ -16,8 +16,8 @@
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/latest">Download free beta</a> ·
-  <a href="https://belsonbox.gumroad.com/l/aidocprep">Support the project</a>
+  <a href="https://belsonbox.gumroad.com/l/aidocprep">Download free beta</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest">GitHub releases</a>
 </p>
 
 <p align="center">
@@ -115,7 +115,7 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 ## Installation
 
-The app is **free while it's in beta**. Grab it from the [releases page](https://github.com/amitxm/AIDocPrep/releases).
+The app is **free while it's in beta**. Grab it from [Gumroad](https://belsonbox.gumroad.com/l/aidocprep) — pay what you want, or nothing. The same signed files are also attached to every [GitHub release](https://github.com/amitxm/AIDocPrep/releases) if you'd rather download from here.
 
 Both builds are code-signed, so they install without security warnings.
 
