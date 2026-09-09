@@ -103,6 +103,12 @@ While code editors and chat clients can index or parse local files, they have ma
 - **Format-aware parsing:** AI DocPrep uses dedicated converters per format (via `MarkItDown`) instead of treating everything as plain text, so tables, slides, and spreadsheets survive the trip to Markdown.
 - **Scattered files:** Uploading 50 files manually can trigger UI limits. AI DocPrep merges everything into a single structured master document with a generated Table of Contents, making context ingestion a one-click action.
 
+### 6. Why not use a document-parsing library?
+Docling, Marker and PyMuPDF4LLM are good parsers. They're Python libraries: install a package, set up an environment, write code. AI DocPrep is an app, and it ships `docprep_core.py` if you'd rather script it, so you get both. None of those libraries redact — a document with a client name or an SSN in it is still your problem.
+
+### 7. Why not use a PII redaction tool?
+Most turn a PDF into a redacted PDF. That works for filing a document. It doesn't help when you're pasting into a chatbot, because you're still sending a file full of formatting the model charges you for. AI DocPrep redacts and converts in one pass. Converters don't redact. Redactors don't convert.
+
 ## Privacy
 
 There is no server behind AI DocPrep and no account to sign in to. Conversion makes no internet requests — the optional Ollama engine talks only to your own server on localhost. Turn off Wi‑Fi and verify. The code is public under the MIT license, so you or your security team can read exactly what it does instead of trusting this paragraph.

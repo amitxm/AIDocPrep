@@ -242,7 +242,7 @@
       <div>
         <span class="tag">Local document toolkit · macOS &amp; Windows</span>
         <h1>Get your documents ready for AI. <mark>Without handing them over.</mark></h1>
-        <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, and redacts the private parts. All of it happens on your computer. Nothing gets uploaded.</p>
+        <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, reads the text inside scans and screenshots, and redacts the private parts. All on your computer. Nothing gets uploaded.</p>
         <div class="hero-cta">
           <a class="btn btn-ink" href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Download free beta</a>
           <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
@@ -298,7 +298,7 @@ contact <span class="bar">EMAIL</span> · SSN <span class="bar">SSN</span></div>
         <div class="bcard reveal">
           <span class="k">01</span>
           <h3>Drag, drop, done</h3>
-          <p>Drop in files or whole folders, click once, get Markdown. That's the entire workflow.</p>
+          <p>Drop in files or whole folders — documents, slides, spreadsheets, email, even images. Click once.</p>
         </div>
         <div class="bcard reveal">
           <span class="k">02</span>
@@ -479,10 +479,14 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         <div class="fmt reveal">DOCX <span>· Word</span></div>
         <div class="fmt reveal">PPTX <span>· slides</span></div>
         <div class="fmt reveal">XLSX <span>· spreadsheets</span></div>
+        <div class="fmt reveal">MSG <span>· Outlook email</span></div>
+        <div class="fmt reveal">EPUB <span>· ebooks</span></div>
+        <div class="fmt reveal">IPYNB <span>· notebooks</span></div>
         <div class="fmt reveal">HTML <span>· web pages</span></div>
         <div class="fmt reveal">VTT <span>· transcripts</span></div>
+        <div class="fmt reveal">IMAGES <span>· PNG, JPG, screenshots</span></div>
       </div>
-      <p class="lede reveal" style="margin-top:22px;">Each format gets a purpose-built converter, so tables, slides, and spreadsheets survive the trip into Markdown.</p>
+      <p class="lede reveal" style="margin-top:22px;">Each format gets a purpose-built converter, so tables, slides, and spreadsheets survive the trip into Markdown. Switch on OCR and it also reads scanned PDFs, screenshots, and the images buried inside your documents — on your machine, like everything else.</p>
     </div>
   </section>
 
@@ -539,8 +543,16 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
           <p>Usually no. Modern models hold hundreds of pages in context, so for personal and project-sized document sets, one clean Markdown file beats chunked retrieval, with zero infrastructure. If you do run RAG at scale, clean Markdown makes your chunks noticeably more accurate.</p>
         </details>
         <details>
+          <summary>Why not use a document-parsing library? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>Docling, Marker and PyMuPDF4LLM are good parsers. They're also Python libraries: you install a package, set up an environment, and write code. AI DocPrep is an app. Drag a folder, click once. None of them redact either, so a document with a client name or an SSN in it is still your problem.</p>
+        </details>
+        <details>
+          <summary>Why not use a PII redaction tool? <span class="plus" aria-hidden="true">+</span></summary>
+          <p>Most turn a PDF into a redacted PDF. That works for filing a document. It doesn't help when you're pasting into a chatbot, because you're still sending a file full of formatting the model charges you for. AI DocPrep redacts and converts in one pass. Converters don't redact. Redactors don't convert.</p>
+        </details>
+        <details>
           <summary>Which formats and platforms are supported? <span class="plus" aria-hidden="true">+</span></summary>
-          <p>PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), HTML, and VTT transcripts today, on macOS and Windows. Conversion runs in parallel across your CPU, and Office temp files are skipped automatically.</p>
+          <p>PDF, Word, PowerPoint, Excel, Outlook email (.msg), EPUB, Jupyter notebooks, HTML, VTT transcripts, and image files — on macOS and Windows. With OCR switched on it also reads scanned PDFs and pictures embedded in documents. Conversion runs in parallel across your CPU, and Office temp files are skipped automatically.</p>
         </details>
         <details>
           <summary>What happens to files I've already converted? <span class="plus" aria-hidden="true">+</span></summary>
