@@ -170,6 +170,11 @@
   .plan li{display:flex;gap:10px;font-size:0.94rem;align-items:flex-start;}
   .plan .btn{margin-top:auto;justify-content:center;}
   .plan .fineprint{font-size:0.8rem;color:var(--mut);margin-top:14px;text-align:center;}
+  .plan .dl{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .plan .dl .btn{margin-top:0;}
+  .phone-hint{display:none;}
+  .hero-phone{font-size:0.88rem;color:var(--mut);margin:14px 0 0;}
+  .linkbtn{background:none;border:0;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;}
 
   .faq{display:flex;flex-direction:column;margin-top:36px;border-top:1.5px solid var(--ink);}
   details{border-bottom:1px solid var(--line);}
@@ -204,8 +209,9 @@
     .case{grid-template-columns:1fr;gap:12px;padding:24px;}
     .proof,.demo,.price-grid{grid-template-columns:1fr;}
     .nav-links a:not(.btn){display:none;}
+    .phone-hint{display:block;}
   }
-  @media (max-width:480px){ .quad{grid-template-columns:1fr;} body{font-size:16px;} }
+  @media (max-width:480px){ .quad,.plan .dl{grid-template-columns:1fr;} body{font-size:16px;} }
   @media (prefers-reduced-motion:reduce){
     .reveal{opacity:1;transform:none;transition:none;}
     html{scroll-behavior:auto;}
@@ -244,9 +250,11 @@
         <h1>Get your documents ready for AI. <mark>Without handing them over.</mark></h1>
         <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, reads the text inside scans and screenshots, and redacts the private parts. All on your computer. Nothing gets uploaded.</p>
         <div class="hero-cta">
-          <a class="btn btn-ink" href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Download free beta</a>
+          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-mac.dmg" data-goatcounter-click="download-mac-hero">Download for Mac</a>
+          <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-windows.exe" data-goatcounter-click="download-windows-hero">Download for Windows</a>
           <a class="btn btn-ghost" href="https://github.com/amitxm/AIDocPrep" rel="noopener">Read the source ↗</a>
         </div>
+        <p class="phone-hint hero-phone">On your phone? <button type="button" class="linkbtn" data-share data-goatcounter-click="phone-send-link-hero">Send yourself the link</button> and open it on your computer.</p>
         <div class="hero-note">
           <span>free while in beta</span>
           <span>·</span>
@@ -494,7 +502,7 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
     <div class="wrap">
       <span class="tag" style="color:#8B897B;">pricing</span>
       <h2 style="color:#fff;margin-top:14px;max-width:24ch;">Free while it's in beta.</h2>
-      <p style="color:#B7B5A6;margin-top:16px;max-width:58ch;">Download it and use it — no account, no trial timer, nothing to pay. Try it on real work and tell me what breaks. If it earns a place in your workflow you can pay what you think it's worth, but that's entirely optional, and the engine stays open source under the MIT license either way.</p>
+      <p style="color:#B7B5A6;margin-top:16px;max-width:58ch;">Download it and use it — no account, no trial timer, nothing to pay. Try it on real work and tell me what breaks. If it earns a place in your workflow, you can <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener" style="color:#EDECE4;border-bottom:2px solid var(--hl);padding-bottom:1px;">leave a tip</a>. That's optional, and the engine stays open source under the MIT license either way.</p>
       <div class="price-grid">
         <div class="plan feature">
           <div class="kind">Beta</div>
@@ -505,8 +513,12 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
             <li><span class="tick"></span> One-click install, no account</li>
             <li><span class="tick"></span> Every feature, nothing held back</li>
           </ul>
-          <a class="btn btn-ink" href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Download for Mac &amp; Windows</a>
-          <p class="fineprint">macOS (Apple Silicon) and Windows · enter <b>$0</b> at checkout, or pay what you want · <a href="https://github.com/amitxm/AIDocPrep/releases/latest" rel="noopener" style="color:inherit;text-decoration:underline;">direct download on GitHub</a></p>
+          <div class="dl">
+            <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-mac.dmg" data-goatcounter-click="download-mac">Download for Mac</a>
+            <a class="btn btn-ink" href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-windows.exe" data-goatcounter-click="download-windows">Download for Windows</a>
+          </div>
+          <p class="fineprint phone-hint">On your phone? <button type="button" class="linkbtn" data-share data-goatcounter-click="phone-send-link">Send yourself the link</button> and open it on your computer.</p>
+          <p class="fineprint">macOS (Apple Silicon) and Windows · <a href="https://github.com/amitxm/AIDocPrep/releases/latest" rel="noopener" style="color:inherit;text-decoration:underline;">release notes</a></p>
         </div>
         <div class="plan">
           <div class="kind">Build from source</div>
@@ -608,9 +620,10 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         </div>
         <div class="col">
           <h4>Get it</h4>
-          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">macOS</a>
-          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Windows</a>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-mac.dmg" data-goatcounter-click="download-mac-footer">macOS</a>
+          <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-windows.exe" data-goatcounter-click="download-windows-footer">Windows</a>
           <a href="https://github.com/amitxm/AIDocPrep/releases/latest" rel="noopener">All releases</a>
+          <a href="https://belsonbox.gumroad.com/l/aidocprep" rel="noopener">Leave a tip</a>
         </div>
       </div>
     </div>
@@ -654,6 +667,24 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         co.observe(counter);
       }
     }
+  })();
+
+  // "Send yourself the link" (shown on narrow screens): share sheet where available, otherwise copy
+  (function(){
+    var link = "https://aidocprep.app/#pricing";
+    [].forEach.call(document.querySelectorAll("[data-share]"), function(btn){
+      var label = btn.textContent;
+      btn.addEventListener("click", function(){
+        if(navigator.share){
+          navigator.share({title:"AI DocPrep", text:"AI DocPrep for Mac and Windows", url:link}).catch(function(){});
+          return;
+        }
+        var done = function(){ btn.textContent = "Link copied"; setTimeout(function(){ btn.textContent = label; }, 2000); };
+        var ask = function(){ window.prompt("Copy this link:", link); };
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done, ask); }
+        else { ask(); }
+      });
+    });
   })();
 </script>
 <script data-goatcounter="https://aidocprep.goatcounter.com/count"

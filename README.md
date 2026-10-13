@@ -16,8 +16,9 @@
 
 <p align="center">
   <a href="https://aidocprep.app">aidocprep.app</a> ·
-  <a href="https://belsonbox.gumroad.com/l/aidocprep">Download free beta</a> ·
-  <a href="https://github.com/amitxm/AIDocPrep/releases/latest">GitHub releases</a>
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-mac.dmg">Download for Mac</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-windows.exe">Download for Windows</a> ·
+  <a href="https://github.com/amitxm/AIDocPrep/releases/latest">All releases</a>
 </p>
 
 <p align="center">
@@ -115,7 +116,7 @@ There is no server behind AI DocPrep and no account to sign in to. Conversion ma
 
 ## Installation
 
-The app is **free while it's in beta**. Grab it from [Gumroad](https://belsonbox.gumroad.com/l/aidocprep) — pay what you want, or nothing. The same signed files are also attached to every [GitHub release](https://github.com/amitxm/AIDocPrep/releases) if you'd rather download from here.
+The app is **free while it's in beta**. Download it for [Mac](https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-mac.dmg) or [Windows](https://github.com/amitxm/AIDocPrep/releases/latest/download/AIDocPrep-windows.exe) — both links always point at the latest build. Release notes and older versions are on the [releases page](https://github.com/amitxm/AIDocPrep/releases).
 
 Both builds are code-signed, so they install without security warnings.
 
@@ -125,11 +126,11 @@ Both builds are code-signed, so they install without security warnings.
 
 ### Feedback
 
-It's a beta, so bug reports and rough edges are genuinely useful. [Open an issue](https://github.com/amitxm/AIDocPrep/issues/new) — a file that converted badly, a redaction it missed, or anything that felt confusing.
+It's a beta, so bug reports and rough edges are useful. [Open an issue](https://github.com/amitxm/AIDocPrep/issues/new) — a file that converted badly, a redaction it missed, or anything that felt confusing.
 
 ### Support the project
 
-AI DocPrep is free to download and use — nothing to pay, no account. If it saves you tokens or time and you want to chip in, you can pay what you want on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). That funds the code-signing certificates and developer accounts behind the signed builds and the app store releases.
+AI DocPrep is free to download and use — nothing to pay, no account. If it saves you tokens or time and you want to chip in, you can leave a tip on [Gumroad](https://belsonbox.gumroad.com/l/aidocprep). That funds the code-signing certificates and developer accounts behind the signed builds and the app store releases.
 
 ## Building from source
 
