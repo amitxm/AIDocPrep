@@ -471,10 +471,12 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
     return text_content
 
 
-def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> str:
+def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_path: str = None) -> str:
     """
     Converts a single file to Markdown using markitdown (or custom VTT parser).
     Returns the path to the generated .md file.
+    output_path, when given, is written in place: a re-run replaces the file an
+    earlier run produced instead of adding a copy next to it.
     """
     text_content = convert_to_markdown(
         file_path,
@@ -488,9 +490,10 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
         ocr=ocr,
     )
 
-    output_path = f"{os.path.splitext(file_path)[0]}.md"
-    if not overwrite:
-        output_path = get_unique_filename(output_path)
+    if not output_path:
+        output_path = f"{os.path.splitext(file_path)[0]}.md"
+        if not overwrite:
+            output_path = get_unique_filename(output_path)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text_content)
@@ -516,15 +519,19 @@ def scan_folder(folder_path: str, extensions: list[str] = None) -> list[str]:
     return target_files
 
 
-def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> list[str]:
+def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_paths: dict = None) -> list[str]:
     """
     Converts a list of files to Markdown in parallel.
 
     progress_callback receives one event dict per finished file:
       {"file", "status": "done"|"error", "output", "tokens", "error", "done", "total"}
     cancel_check() returning True stops scheduling new files (in-flight ones finish).
+    output_paths optionally maps a source path to the exact output to write,
+    so a batch can be re-run in place; unmapped files follow `overwrite`.
     Returns the list of output paths that were written.
     """
+    if output_paths:
+        output_paths = {os.path.normcase(os.path.abspath(k)): v for k, v in output_paths.items()}
     total = len(file_paths)
     converted_files = []
 
@@ -537,7 +544,8 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
             # "started" lets UIs show which file is being worked on; heavy
             # files can take a while between completion events
             progress_callback({"file": file_path, "status": "started", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": None, "total": total})
-        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip, ocr=ocr)
+        dest = output_paths.get(os.path.normcase(os.path.abspath(file_path))) if output_paths else None
+        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip, ocr=ocr, output_path=dest)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         future_to_file = {

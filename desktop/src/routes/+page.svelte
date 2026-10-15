@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getVersion } from "@tauri-apps/api/app";
+  import { appCacheDir } from "@tauri-apps/api/path";
   import { open } from "@tauri-apps/plugin-dialog";
   import { Command } from "@tauri-apps/plugin-shell";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -54,6 +55,15 @@
       .catch(() => {});
   });
   let child = null;
+  // The engine records where each output went (--manifest) so "Read with OCR"
+  // can re-run the same batch and overwrite exactly those files (--replace-from)
+  let manifestPath = "";
+  let lastArgs = null;
+  onMount(() => {
+    appCacheDir()
+      .then((d) => (manifestPath = joinPath(d, "last-run.json")))
+      .catch(() => {});
+  });
 
   $effect(() => {
     localStorage.setItem("docprep.settings", JSON.stringify(s));
@@ -61,6 +71,10 @@
 
   const totalFiles = $derived(items.reduce((n, i) => n + (i.isDir ? i.count ?? 0 : 1), 0));
   const scanning = $derived(items.some((i) => i.isDir && i.count === null));
+  // Files whose images or scanned pages went unread because OCR was off
+  const unreadFiles = $derived(
+    items.reduce((n, i) => n + (i.isDir ? i.children.filter((c) => c.unread).length : i.unread ? 1 : 0), 0)
+  );
 
   const totalPct = $derived.by(() => {
     if (!summary || !(summary.src_tokens > summary.out_comparable) || !(summary.out_comparable > 0)) return null;
@@ -187,8 +201,11 @@
     return args;
   }
 
-  async function convert() {
+  // rerun: repeat the last batch with OCR on, replacing its outputs in place
+  async function convert(rerun = false) {
     if (!items.length || state === "running") return;
+    if (rerun && !(lastArgs && summary?.manifest)) return;
+    const args = rerun ? [...lastArgs, "--ocr", "--replace-from", summary.manifest] : (lastArgs = buildArgs());
     state = "running";
     summary = null;
     footerMsg = "";
@@ -198,13 +215,14 @@
       i.errors = 0;
       i.src = 0;
       i.outCmp = 0;
+      i.unread = 0;
       i.children = [];
     }
 
-    progress = { done: 0, total: totalFiles, current: "starting up…" };
+    progress = { done: 0, total: totalFiles, current: rerun ? "reading images…" : "starting up…" };
     let stderrTail = "";
 
-    const cmd = Command.sidecar("binaries/docprep-core", buildArgs());
+    const cmd = Command.sidecar("binaries/docprep-core", manifestPath ? [...args, "--manifest", manifestPath] : args);
     cmd.stdout.on("data", (line) => {
       let ev;
       try {
@@ -271,7 +289,8 @@
       if ((summary.failed > 0 || summary.cancelled) && stderrTail) footerMsg = stderrTail;
       state = "done";
       child = null;
-      if (s.revealWhenDone && revealTarget && !summary.cancelled) showInFolder();
+      // A re-run writes to the files already shown, so don't open the folder again
+      if (s.revealWhenDone && revealTarget && !summary.cancelled && !rerun) showInFolder();
     };
     cmd.on("close", finish);
     cmd.on("error", finish);
@@ -363,6 +382,12 @@
           {#if summary.failed > 0}<span class="fail mono">{summary.failed} failed</span>{/if}
         {/if}
       </div>
+      {#if !summary.cancelled && summary.manifest && unreadFiles > 0}
+        <div class="ocrnote">
+          <span><span class="mono">{unreadFiles}</span> {unreadFiles === 1 ? "file has" : "files have"} text inside images that wasn't read.</span>
+          <button class="small primary" onclick={() => convert(true)}>Read with OCR</button>
+        </div>
+      {/if}
     {/if}
     <div class="listhead mono">
       <span>{items.length} item{items.length === 1 ? "" : "s"} · {scanning ? "scanning…" : `${totalFiles} file${totalFiles === 1 ? "" : "s"}`}</span>
@@ -384,7 +409,7 @@
             <span class="status mono">&#10003; ~{item.tokens.toLocaleString()} tokens</span>
             {#if rowPct(item)}<span class="pill mono">&#8722;{rowPct(item)}%</span>{/if}
           {/if}
-          {#if item.unread}<span class="unread mono" title="Has text inside images or scanned pages that was not read. Turn on “Read text in images and scanned PDFs” in Settings.">{item.unread} img unread</span>{/if}
+          {#if item.unread}<span class="unread mono" title="Has text inside images or scanned pages that wasn't read. Click “Read with OCR” above, or turn on “Read text in images and scanned PDFs” in Settings.">{item.unread} img unread</span>{/if}
           {#if item.errors}<span class="fail mono">{item.errors} failed</span>{/if}
           {#if state === "staged"}<button class="x" onclick={() => removeItem(item)}>&#10005;</button>{/if}
         </li>
@@ -396,7 +421,7 @@
             {:else if c.status === "error"}
               <span class="fail mono" title={c.error}>{(c.error || "failed").slice(0, 48)}</span>
             {:else}
-              {#if c.unread}<span class="unread mono" title="Has text inside images or scanned pages that was not read. Turn on “Read text in images and scanned PDFs” in Settings.">{c.unread} img unread</span>{/if}
+              {#if c.unread}<span class="unread mono" title="Has text inside images or scanned pages that wasn't read. Click “Read with OCR” above, or turn on “Read text in images and scanned PDFs” in Settings.">{c.unread} img unread</span>{/if}
               <span class="status mono">~{c.tokens.toLocaleString()} tok</span>
             {/if}
           </li>
@@ -414,7 +439,7 @@
         </label>
         <label class="redact" class:active={s.redact}><input type="checkbox" bind:checked={s.redact} /> Redact PII</label>
       </div>
-      <button class="primary big" onclick={convert} disabled={scanning || totalFiles === 0}>
+      <button class="primary big" onclick={() => convert()} disabled={scanning || totalFiles === 0}>
         {scanning ? "Scanning folders…" : totalFiles === 0 ? "No supported files found" : `Convert ${totalFiles} file${totalFiles === 1 ? "" : "s"}`}
       </button>
     {:else if state === "running"}
@@ -573,6 +598,7 @@
     margin-bottom: 12px;
   }
   .banner.warn { border-color: #b3261e; }
+  .ocrnote { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 3px; padding: 8px 10px 8px 14px; margin: -4px 0 12px; font-size: 12px; }
   .listhead { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--mut); margin-bottom: 6px; letter-spacing: 0.04em; }
   .headbtns { display: flex; gap: 6px; }
   .queue {

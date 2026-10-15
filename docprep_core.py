@@ -73,6 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="OCR scanned PDFs and images embedded in documents (slow; off by default)")
     p.add_argument("--allow-zip", action="store_true",
                    help="convert ZIP archives (contents filtered to supported formats, size-capped)")
+    p.add_argument("--manifest", default=None, metavar="PATH",
+                   help="write a JSON record of which output each file went to")
+    p.add_argument("--replace-from", default=None, metavar="PATH",
+                   help="re-run in place: overwrite the outputs recorded in a --manifest file instead of adding copies")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
     p.add_argument("--watchdog", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--quiet", action="store_true", help="only print the final summary (human mode)")
@@ -110,6 +114,36 @@ def collect_files(paths: list[str]) -> tuple[list[str], str]:
     return files, base_dir
 
 
+def load_manifest(path: str) -> tuple[dict, str | None]:
+    """Reads a --manifest record: ({source: output}, combined output or None).
+    Only .md targets are honoured, so a damaged record can't aim a re-run at
+    anything but a Markdown file."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    def is_md(p):
+        return isinstance(p, str) and p.lower().endswith(".md")
+
+    outputs = {src: dest for src, dest in (data.get("outputs") or {}).items() if is_md(dest)}
+    combined = data.get("combined")
+    return outputs, (combined if is_md(combined) else None)
+
+
+def write_manifest(path: str, outputs: dict, combined: str | None) -> str | None:
+    """Writes the record a later --replace-from run reads. Returns the path, or
+    None if it couldn't be written (the caller then offers no in-place re-run)."""
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "outputs": outputs, "combined": combined}, f, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except OSError as e:
+        print(f"docprep-core: could not write manifest: {e}", file=sys.stderr)
+        return None
+
+
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -143,6 +177,14 @@ def main(argv=None) -> int:
         with open(args.terms_file, "r", encoding="utf-8") as f:
             custom_terms = f.read()
 
+    replace_outputs, replace_combined = {}, None
+    if args.replace_from:
+        try:
+            replace_outputs, replace_combined = load_manifest(args.replace_from)
+        except (OSError, ValueError) as e:
+            print(f"docprep-core: cannot read --replace-from manifest: {e}", file=sys.stderr)
+            return 2
+
     signal.signal(signal.SIGINT, _handle_sigint)
 
     if args.watchdog:
@@ -169,6 +211,7 @@ def main(argv=None) -> int:
         say(f"Converting {len(files)} file{'s' if len(files) != 1 else ''}...")
 
     stats = {"done": 0, "errors": 0, "tokens": 0, "src": 0, "out_comparable": 0}
+    written = {}  # source -> output, for --manifest
 
     def progress(event):
         if event["status"] == "started":
@@ -179,6 +222,7 @@ def main(argv=None) -> int:
         if event["status"] == "error":
             stats["errors"] += 1
         else:
+            written[event["file"]] = event["output"]
             stats["tokens"] += event["tokens"]
             if event.get("source_tokens"):
                 stats["src"] += event["source_tokens"]
@@ -203,18 +247,23 @@ def main(argv=None) -> int:
         custom_terms=custom_terms,
         allow_zip=args.allow_zip,
         ocr=args.ocr,
+        output_paths=replace_outputs,
     )
 
     combined_path = None
     total_tokens = stats["tokens"]
     if not _cancelled and args.output in ("both", "combined-only") and len(outputs) >= 2:
         name = os.path.basename(base_dir.rstrip(os.sep)) or "Documents"
-        combined_name = args.combined_name or f"{name}-combined.md"
-        target = os.path.join(base_dir, combined_name)
+        if replace_combined:
+            target, overwrite_combined = replace_combined, True
+        else:
+            combined_name = args.combined_name or f"{name}-combined.md"
+            target = os.path.join(base_dir, combined_name)
+            overwrite_combined = args.conflict == "overwrite"
         try:
             combined_path = combine_files(
                 sorted(outputs), target, base_dir=base_dir,
-                overwrite=args.conflict == "overwrite",
+                overwrite=overwrite_combined,
                 generate_toc=not args.no_toc,
                 inject_yaml=not args.no_yaml,
                 collection_name=name,
@@ -238,6 +287,8 @@ def main(argv=None) -> int:
         except Exception as e:
             print(f"docprep-core: combine failed: {e}", file=sys.stderr)
 
+    manifest = write_manifest(args.manifest, written, combined_path) if args.manifest else None
+
     elapsed = round(time.time() - started, 2)
     saved = max(0, stats["src"] - stats["out_comparable"])
     summary = {
@@ -252,6 +303,7 @@ def main(argv=None) -> int:
         "cancelled": _cancelled,
         "combined": combined_path,
         "outputs": outputs,
+        "manifest": manifest,
     }
     if args.json:
         emit(summary)

@@ -402,6 +402,47 @@ def cancel_after_first():
 outs_c = convert_files(found, cancel_check=cancel_after_first, overwrite=True)
 check("cancel returns partial", len(outs_c) <= len(found))
 
+# 9. in-place re-run (the app's "Read with OCR"): --manifest records where each
+# output went; --replace-from overwrites exactly those files, never a user's own
+# note and never adding " (1)" copies
+import io
+import json
+import contextlib
+import docprep_core
+
+rerun = os.path.join(work, "rerun")
+os.makedirs(rerun)
+with open(os.path.join(rerun, "a.html"), "w", encoding="utf-8") as f:
+    f.write("<html><body><p>first pass</p></body></html>")
+with open(os.path.join(rerun, "b.html"), "w", encoding="utf-8") as f:
+    f.write("<html><body><p>bee</p></body></html>")
+with open(os.path.join(rerun, "a.md"), "w", encoding="utf-8") as f:
+    f.write("my own note")  # pre-existing: keep-both must route a.html elsewhere
+manifest_path = os.path.join(work, "cache", "last-run.json")
+
+def run_core(*extra):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = docprep_core.main([rerun, "--json", "--output", "both", "--manifest", manifest_path, *extra])
+    events = [json.loads(line) for line in buf.getvalue().splitlines() if line.strip()]
+    return code, next((e for e in events if e["event"] == "summary"), None)
+
+code1, sum1 = run_core()
+check("first run writes the manifest", code1 == 0 and sum1.get("manifest") == manifest_path, str(sum1.get("manifest")))
+first_a = os.path.join(rerun, "a (1).md")
+check("first run kept the user's a.md and wrote a (1).md", os.path.exists(first_a))
+with open(os.path.join(rerun, "a.html"), "w", encoding="utf-8") as f:
+    f.write("<html><body><p>second pass</p></body></html>")
+code2, sum2 = run_core("--replace-from", manifest_path)
+mds = sorted(n for n in os.listdir(rerun) if n.endswith(".md"))
+check("re-run adds no copies", mds == ["a (1).md", "a.md", "b.md", "rerun-combined.md"], str(mds))
+check("re-run refreshed the earlier output", "second pass" in open(first_a, encoding="utf-8").read())
+check("re-run left the user's note alone", open(os.path.join(rerun, "a.md"), encoding="utf-8").read() == "my own note")
+check("re-run rewrote the combined file in place",
+      sum2.get("combined") == sum1.get("combined") and "second pass" in open(sum2["combined"], encoding="utf-8").read())
+code3, _ = run_core("--replace-from", os.path.join(work, "missing.json"))
+check("unreadable manifest refuses to run", code3 == 2)
+
 shutil.rmtree(work, ignore_errors=True)
 print()
 print("FAILURES:", failures if failures else "none")
