@@ -17,6 +17,8 @@ Output/
 audio-sidecar/macos/.build/
 audio-sidecar/macos/.swiftpm/
 audio-sidecar/windows/target/
+audio-sidecar/windows/.vendor_cache/
+audio-sidecar/windows/Cargo.lock
 desktop/node_modules/
 desktop/build/
 desktop/.svelte-kit/

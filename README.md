@@ -5,7 +5,7 @@
 <h1 align="center">AI DocPrep</h1>
 
 <p align="center">
-  Convert PDFs, Word docs, decks, spreadsheets, ebooks, and more into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
+  Convert PDFs, Word docs, decks, spreadsheets, ebooks, audio &amp; video recordings, and more into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
 </p>
 
 <p align="center">
@@ -38,6 +38,7 @@ Office files are bloated with formatting metadata the model never needs. A `.doc
 
 - **Drag & drop queue.** Drop any mix of files and folders anywhere on the window; convert the whole batch with one click.
 - **Every office format.** Word, PDF, PowerPoint, Excel (including legacy `.xls`), Outlook `.msg`, EPUB, Jupyter notebooks, HTML, VTT transcripts, and plain text. ZIP archives too, as an opt-in: contents are filtered to supported types and size-capped.
+- **Audio & video transcription with speaker labels.** Drop in `.mp3`, `.m4a`, `.wav`, `.flac`, `.ogg`, `.aac`, `.opus`, `.mp4`, `.mov`, `.webm`, or `.mkv` recordings. A native sidecar transcribes speech and separates speakers (`**[00:01:14] Speaker 1:**`) entirely on-device — using CoreML on the Apple Neural Engine (macOS) or Whisper Vulkan / Sherpa-ONNX (Windows). Models download once on demand so the app installer stays small.
 - **Reads the text inside images (opt-in).** On-device OCR recovers the words in screenshot-heavy slides, scanned PDFs, and image files — nothing downloaded, nothing uploaded. Off by default because it's slower; PDFs that already contain text are never re-OCR'd.
 - **Token counts and savings.** Every file (and the batch total) shows an estimated token count and the percentage saved versus the raw source.
 - **Flexible output.** Individual `.md` files, individual plus a combined master file, or the combined file only.
@@ -62,14 +63,15 @@ python docprep_core.py ./research report.docx --output combined-only --redact
 python docprep_core.py ./docs --json
 ```
 
-Every option is a flag: output mode, conflict policy, YAML/TOC toggles, redaction engine and model, custom terms and prompt files, `--ocr`, `--allow-zip`. Exit codes: `0` ok, `1` partial failures, `2` no input, `130` cancelled. Run `--help` for the full list.
+Every option is a flag: output mode, conflict policy, YAML/TOC toggles, redaction engine and model, custom terms and prompt files, `--ocr`, `--allow-zip`, `--no-diarize`, `--speakers`, `--audio-model`, and `--list-models` / `--download-model`. Exit codes: `0` ok, `1` partial failures, `2` no input, `130` cancelled. Run `--help` for the full list.
 
 ## How it's built
 
 ```
-backend/          Python engine: markitdown conversion, OCR, redaction, combining, settings
+backend/          Python engine: markitdown conversion, OCR, audio/video bridge, redaction, combining, settings
+audio-sidecar/    Native offline speech & speaker diarization sidecar (Swift/FluidAudio on macOS, Rust on Windows)
 docprep_core.py   Headless CLI wrapping the engine; emits JSON-lines events
-desktop/          The app: Tauri 2 + Svelte 5, runs docprep-core as a signed sidecar
+desktop/          The app: Tauri 2 + Svelte 5, runs docprep-core and docprep-audio as signed sidecars
 app.py            Legacy 1.x GUI (CustomTkinter) — still runs, no longer the shipped app
 site/             aidocprep.app marketing page (static, served via Cloudflare)
 tests/            Backend and GUI test suites
