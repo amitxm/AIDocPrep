@@ -49,81 +49,76 @@ Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "Sidecar (onedir) built: $bin\docprep-core-$triple.exe + _internal\"
 
 # ---------------------------------------------------------------------------
-# Build Windows native audio sidecar (docprep-audio) + stage inference runtime
+# Build the Windows native audio sidecar (docprep-audio): whisper.cpp with the
+# ggml Vulkan backend + sherpa-onnx, all in-process (see audio-sidecar/windows).
+#
+# One-time machine prerequisites:
+#   - Rust (stable-msvc)            winget install Rustlang.Rustup
+#   - VS 2022 Build Tools with the C++ workload (cl.exe, CMake, Ninja)
+#   - LLVM (libclang for bindgen)   winget install LLVM.LLVM
+#   - Vulkan SDK (shader compiler)  winget install KhronosGroup.VulkanSDK
+#
+# Two rules learned the hard way:
+#   1. cargo must run inside the MSVC developer environment (vcvars64), or
+#      CMake cannot find cl.exe for whisper.cpp.
+#   2. The cargo target dir must be SHORT. whisper.cpp's Vulkan shader
+#      generator nests a CMake project ~150 characters below the crate's build
+#      dir; from the repo path that exceeds MAX_PATH and fails with
+#      "error C1083: Cannot open compiler generated file". Default: C:\dpa
+#      (override with DOCPREP_AUDIO_TARGET_DIR).
 # ---------------------------------------------------------------------------
 Write-Host "Building Windows native audio sidecar (docprep-audio)..."
-& $cargoExe build --release --manifest-path "audio-sidecar\windows\Cargo.toml"
+
+$vsRoot = (& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null | Select-Object -First 1)
+if (-not $vsRoot) { throw "Visual Studio 2022 Build Tools with the C++ workload were not found (vswhere)." }
+$vcvars = Join-Path $vsRoot "VC\Auxiliary\Build\vcvars64.bat"
+if (-not (Test-Path $vcvars)) { throw "vcvars64.bat not found under $vsRoot" }
+$vsCMake = Join-Path $vsRoot "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+$vsNinja = Join-Path $vsRoot "Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"
+
+if (-not $env:VULKAN_SDK) {
+    $sdk = Get-ChildItem "C:\VulkanSDK" -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+    if ($sdk) { $env:VULKAN_SDK = $sdk.FullName }
+}
+if (-not $env:VULKAN_SDK -or -not (Test-Path "$env:VULKAN_SDK\Bin\glslc.exe")) {
+    throw "Vulkan SDK not found. Install it (winget install KhronosGroup.VulkanSDK) or set VULKAN_SDK."
+}
+if (-not $env:LIBCLANG_PATH) {
+    if (Test-Path "C:\Program Files\LLVM\bin\libclang.dll") { $env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin" }
+}
+if (-not $env:LIBCLANG_PATH -or -not (Test-Path "$env:LIBCLANG_PATH\libclang.dll")) {
+    throw "libclang not found. Install LLVM (winget install LLVM.LLVM) or set LIBCLANG_PATH."
+}
+
+$audioTarget = if ($env:DOCPREP_AUDIO_TARGET_DIR) { $env:DOCPREP_AUDIO_TARGET_DIR } else { "C:\dpa" }
+New-Item -ItemType Directory -Force $audioTarget | Out-Null
+$env:CARGO_TARGET_DIR = $audioTarget
+$env:CMAKE_GENERATOR = "Ninja"
+$env:PATH = "$cargoBin;$env:VULKAN_SDK\Bin;$env:LIBCLANG_PATH;$vsCMake;$vsNinja;$env:PATH"
+
+$manifest = (Resolve-Path "audio-sidecar\windows\Cargo.toml").Path
+cmd /c "`"$vcvars`" >nul 2>&1 && `"$cargoExe`" build --release --manifest-path `"$manifest`""
 if ($LASTEXITCODE -ne 0) {
-    throw "cargo build failed for audio-sidecar\windows"
+    throw "cargo build failed for audio-sidecar\windows (see output above)"
 }
+Remove-Item Env:\CARGO_TARGET_DIR -ErrorAction SilentlyContinue
+Remove-Item Env:\CMAKE_GENERATOR -ErrorAction SilentlyContinue
 
-Copy-Item "audio-sidecar\windows\target\release\docprep-audio.exe" "$bin\docprep-audio-$triple.exe" -Force
-Write-Host "Audio sidecar built: $bin\docprep-audio-$triple.exe"
+$audioExe = Join-Path $audioTarget "release\docprep-audio.exe"
+if (-not (Test-Path $audioExe)) { throw "Expected $audioExe after cargo build" }
+Copy-Item $audioExe "$bin\docprep-audio-$triple.exe" -Force
 
-$audioRuntimeDir = "$bin\_internal\audio_runtime"
-New-Item -ItemType Directory -Force $audioRuntimeDir | Out-Null
-
-$vendorCache = "audio-sidecar\windows\.vendor_cache"
-$cachedRuntime = "$vendorCache\runtime"
-New-Item -ItemType Directory -Force $cachedRuntime | Out-Null
-
-if ($env:DOCPREP_SKIP_AUDIO_VENDOR -ne "1") {
-    # 1. Stage whisper.cpp Windows x64 runtime (whisper-cli.exe + ggml/whisper DLLs)
-    if (-not (Test-Path "$cachedRuntime\whisper-cli.exe")) {
-        $whisperZip = "$vendorCache\whisper-bin-x64.zip"
-        $whisperExtract = "$vendorCache\whisper_extract"
-        $whisperUrl = if ($env:DOCPREP_WHISPER_WIN_URL) {
-            $env:DOCPREP_WHISPER_WIN_URL
-        } else {
-            "https://github.com/ggml-org/whisper.cpp/releases/download/v1.7.6/whisper-bin-x64.zip"
-        }
-        Write-Host "Downloading whisper.cpp Windows runtime from $whisperUrl ..."
-        Invoke-WebRequest -Uri $whisperUrl -OutFile $whisperZip -UseBasicParsing
-        if (Test-Path $whisperExtract) { Remove-Item $whisperExtract -Recurse -Force }
-        Expand-Archive -Path $whisperZip -DestinationPath $whisperExtract -Force
-
-        Get-ChildItem -Path $whisperExtract -Recurse -Include "whisper-cli.exe", "main.exe", "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName -Destination $cachedRuntime -Force
-        }
-        if ((-not (Test-Path "$cachedRuntime\whisper-cli.exe")) -and (Test-Path "$cachedRuntime\main.exe")) {
-            Copy-Item "$cachedRuntime\main.exe" "$cachedRuntime\whisper-cli.exe" -Force
-        }
-        Remove-Item $whisperExtract -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    # 2. Stage sherpa-onnx Windows x64 shared C-API + offline diarization runtime
-    if (-not (Test-Path "$cachedRuntime\sherpa-onnx-c-api.dll")) {
-        $sherpaArchive = "$vendorCache\sherpa-onnx-win-x64.tar.bz2"
-        $sherpaExtract = "$vendorCache\sherpa_extract"
-        $sherpaUrl = if ($env:DOCPREP_SHERPA_WIN_URL) {
-            $env:DOCPREP_SHERPA_WIN_URL
-        } else {
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.28/sherpa-onnx-v1.12.28-win-x64-shared-MT-Release-no-tts.tar.bz2"
-        }
-        Write-Host "Downloading sherpa-onnx Windows runtime from $sherpaUrl ..."
-        Invoke-WebRequest -Uri $sherpaUrl -OutFile $sherpaArchive -UseBasicParsing
-        if (Test-Path $sherpaExtract) { Remove-Item $sherpaExtract -Recurse -Force }
-        New-Item -ItemType Directory -Force $sherpaExtract | Out-Null
-        & tar.exe -xjf $sherpaArchive -C $sherpaExtract
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to extract $sherpaArchive via tar.exe"
-        }
-
-        Get-ChildItem -Path $sherpaExtract -Recurse -Include `
-            "sherpa-onnx-c-api.dll", `
-            "sherpa-onnx-cxx-api.dll", `
-            "onnxruntime*.dll", `
-            "sherpa-onnx-offline.exe", `
-            "sherpa-onnx-offline-speaker-diarization.exe" | ForEach-Object {
-            Copy-Item $_.FullName -Destination $cachedRuntime -Force
-        }
-        Remove-Item $sherpaExtract -Recurse -Force -ErrorAction SilentlyContinue
-    }
+# sherpa-onnx is linked dynamically: its runtime DLLs must sit beside the exe.
+# They are copied next to the triple-named sidecar here (dev layout) and
+# tauri.windows.conf.json maps binaries/*.dll into the install root, which is
+# where Tauri also places the renamed docprep-audio.exe.
+$runtimeDlls = @("onnxruntime.dll", "onnxruntime_providers_shared.dll", "sherpa-onnx-c-api.dll", "sherpa-onnx-cxx-api.dll", "cargs.dll")
+Get-ChildItem $bin -Filter "*.dll" -ErrorAction SilentlyContinue | Remove-Item -Force
+foreach ($dll in $runtimeDlls) {
+    $src = Join-Path $audioTarget "release\$dll"
+    if (-not (Test-Path $src)) { throw "Runtime DLL missing from cargo output: $src" }
+    Copy-Item $src (Join-Path $bin $dll) -Force
 }
-
-if (Test-Path $cachedRuntime) {
-    Get-ChildItem -Path $cachedRuntime -File | ForEach-Object {
-        Copy-Item $_.FullName -Destination $audioRuntimeDir -Force
-    }
-    Write-Host "Staged Windows audio inference runtime in: $audioRuntimeDir"
-}
+$dllMb = [math]::Round((Get-ChildItem $bin -Filter "*.dll" | Measure-Object Length -Sum).Sum / 1MB, 1)
+$exeMb = [math]::Round((Get-Item "$bin\docprep-audio-$triple.exe").Length / 1MB, 1)
+Write-Host "Audio sidecar built: $bin\docprep-audio-$triple.exe ($exeMb MB) + $($runtimeDlls.Count) runtime DLLs ($dllMb MB)"

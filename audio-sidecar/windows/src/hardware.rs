@@ -427,9 +427,11 @@ mod tests {
         assert!(!hw.os.is_empty());
         assert!(!hw.arch.is_empty());
         assert!(hw.ram_mb > 0);
-        // Also verify win_hw fallback path compiles and runs cleanly
+        // Also verify the Windows probe runs cleanly. On a real Windows machine
+        // it reports the actual RAM; the 8192 figure comes only from the
+        // non-Windows simulation stub, so assert on shape, not value.
         let win_sim = win_hw::detect_windows_hardware();
         assert_eq!(win_sim.os, "windows");
-        assert_eq!(win_sim.ram_mb, 8192);
+        assert!(win_sim.ram_mb > 0);
     }
 }

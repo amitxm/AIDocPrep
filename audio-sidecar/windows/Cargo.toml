@@ -1,6 +1,6 @@
 [package]
 name = "docprep-audio"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Windows native offline audio/video transcription & speaker diarization sidecar for AI DocPrep"
 
@@ -9,6 +9,13 @@ name = "docprep-audio"
 path = "src/main.rs"
 
 [dependencies]
+# whisper.cpp in-process. The `vulkan` feature builds the ggml Vulkan backend
+# (vendor-agnostic GPU: NVIDIA, AMD, Intel, Qualcomm); CPU fallback is automatic.
+whisper-rs = { version = "0.16", features = ["vulkan"] }
+# sherpa-onnx in-process: Parakeet TDT transducer + pyannote/CAM++ speaker
+# diarization. `download-binaries` fetches the matching prebuilt sherpa-onnx
+# runtime at BUILD time; at run time the DLLs ship beside the exe.
+sherpa-rs = { version = "0.6", features = ["download-binaries", "sys"] }
 
 [profile.release]
 opt-level = 3

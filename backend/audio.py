@@ -91,16 +91,38 @@ def cancel_audio_file(file_path: str) -> bool:
             proc_to_kill = _active_proc
 
     if proc_to_kill is not None:
-        try:
-            proc_to_kill.terminate()
-            try:
-                proc_to_kill.wait(timeout=1.5)
-            except subprocess.TimeoutExpired:
-                proc_to_kill.kill()
-        except OSError:
-            pass
+        _terminate_process_tree(proc_to_kill)
         return True
     return False
+
+
+def _terminate_process_tree(proc: subprocess.Popen) -> None:
+    """Stop the sidecar and anything it spawned.
+
+    On Windows, terminate() is TerminateProcess on the direct child only. If
+    that child is a launcher (a .cmd wrapper, or any helper it started), the
+    grandchild survives holding our stdout pipe, and the reader thread blocks
+    until it exits on its own. taskkill /T walks the tree.
+    """
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                timeout=5,
+            )
+        except Exception:
+            pass
+    try:
+        proc.terminate()
+        try:
+            proc.wait(timeout=1.5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    except OSError:
+        pass
 
 
 def _platform_triples() -> list[str]:

@@ -288,7 +288,9 @@ pub fn subword_tokens_to_words(tokens: &[(String, f64, f64)]) -> Vec<WordTiming>
         // Skip special control tokens emitted by Whisper or transducer models
         let trimmed_tok = raw_tok.trim();
         if trimmed_tok.is_empty()
-            || (trimmed_tok.starts_with("[_") && trimmed_tok.ends_with("_]"))
+            // Whisper specials: [_BEG_], [_SOT_] end in "_]"; timestamp tokens
+            // like [_TT_160] end in a digit then "]". Match the family, not one form.
+            || (trimmed_tok.starts_with("[_") && trimmed_tok.ends_with(']'))
             || (trimmed_tok.starts_with("<|") && trimmed_tok.ends_with("|>"))
             || trimmed_tok == "<blk>"
             || trimmed_tok == "<sos/eos>"
