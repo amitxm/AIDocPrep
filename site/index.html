@@ -42,6 +42,12 @@
   .tag{font-family:var(--font-mono);font-size:0.72rem;letter-spacing:0.14em;color:var(--mut);
     display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;}
   .tag::before{content:"";width:9px;height:9px;background:var(--hl);border:1px solid var(--ink);display:inline-block;}
+  .news{display:inline-flex;align-items:center;gap:10px;margin-bottom:22px;padding:5px 12px 5px 5px;border:1px solid var(--line-strong);
+    border-radius:999px;background:#fff;color:var(--ink);font-size:0.88rem;text-decoration:none;}
+  .news:hover{border-color:var(--ink);}
+  .news b{font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;background:var(--hl);
+    border:1px solid var(--ink);border-radius:999px;padding:2px 8px;}
+  .news + .tag{display:flex;}
   .lede{color:var(--mut);font-size:1.05rem;max-width:62ch;}
   .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
   section{padding:clamp(54px,8vw,100px) 0;}
@@ -246,6 +252,7 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
+        <a class="news" href="#formats"><b>new</b> Now with audio &amp; video — transcripts with speaker labels →</a>
         <span class="tag">Local document toolkit · macOS &amp; Windows</span>
         <h1>Get your documents ready for AI. <mark>Without handing them over.</mark></h1>
         <p class="lede">AI DocPrep turns PDFs, Word docs, decks, and spreadsheets into clean Markdown, reads the text inside scans and screenshots, and redacts the private parts. All on your computer. Nothing gets uploaded.</p>
@@ -477,7 +484,7 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
     </div>
   </section>
 
-  <section style="padding-top:0;">
+  <section id="formats" style="padding-top:0;">
     <div class="wrap">
       <div class="rule" style="margin-bottom:clamp(48px,7vw,88px);max-width:100%;"></div>
       <span class="tag reveal">formats</span>
@@ -550,7 +557,7 @@ Card:    <span class="y">[REDACTED_CC]</span></pre>
         </details>
         <details>
           <summary>Is it actually private? <span class="plus" aria-hidden="true">+</span></summary>
-          <p>There's no server behind AI DocPrep and no account to sign in to. Conversion makes no internet requests; turn off Wi‑Fi and see for yourself. And because the code is public, your security team can read it instead of taking a policy page's word.</p>
+          <p>There's no server behind AI DocPrep and no account to sign in to. Conversion makes no internet requests; turn off Wi‑Fi and see for yourself. Audio transcription needs a one-time model download, which you start yourself — after that it runs offline too. And because the code is public, your security team can read it instead of taking a policy page's word.</p>
         </details>
         <details>
           <summary>Do I need a vector database or RAG setup? <span class="plus" aria-hidden="true">+</span></summary>
