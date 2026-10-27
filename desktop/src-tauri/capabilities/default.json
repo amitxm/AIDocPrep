@@ -26,12 +26,19 @@
     },
     {
       "identifier": "shell:allow-execute",
-      "allow": [{ "name": "binaries/docprep-core", "sidecar": true, "args": true }]
+      "allow": [
+        { "name": "binaries/docprep-core", "sidecar": true, "args": true },
+        { "name": "binaries/docprep-audio", "sidecar": true, "args": true }
+      ]
     },
     {
       "identifier": "shell:allow-spawn",
-      "allow": [{ "name": "binaries/docprep-core", "sidecar": true, "args": true }]
+      "allow": [
+        { "name": "binaries/docprep-core", "sidecar": true, "args": true },
+        { "name": "binaries/docprep-audio", "sidecar": true, "args": true }
+      ]
     },
+    "shell:allow-stdin-write",
     "shell:allow-kill"
   ]
 }

@@ -108,10 +108,10 @@ with _zipfile.ZipFile(pptx_path, "w") as z:
 check("pptx baseline = text + slides x 1500", estimate_source_tokens(pptx_path, output_tokens=700) == 5 * 1500 + 700,
       str(estimate_source_tokens(pptx_path, output_tokens=700)))
 
-# 2c. unsupported types are rejected before reaching any converter
-# (mp3/wav/m4a/mp4 would hit markitdown's cloud transcription path; zip is
-# rejected unless explicitly enabled — tested separately in 2e)
-for bad_ext in (".mp3", ".mp4", ".wav", ".m4a", ".zip", ".exe"):
+# 2c. unsupported types are rejected before reaching any converter, while
+# audio/video extensions are routed to the local offline sidecar (never
+# markitdown's cloud speech API) and require an installed speech model.
+for bad_ext in (".zip", ".exe", ".avi"):
     bad_path = os.path.join(work, f"blocked{bad_ext}")
     with open(bad_path, "wb") as f:
         f.write(b"junkjunkjunkjunk")
@@ -121,6 +121,33 @@ for bad_ext in (".mp3", ".mp4", ".wav", ".m4a", ".zip", ".exe"):
     check(f"unsupported ext rejected: {bad_ext}", bad_outs == [] and bad_error is not None
           and "Unsupported file type" in (bad_error["error"] or ""), str(bad_error and bad_error["error"]))
     os.remove(bad_path)
+
+empty_models_dir = os.path.join(work, "empty_models")
+os.makedirs(empty_models_dir, exist_ok=True)
+prev_models_env = os.environ.get("DOCPREP_MODELS_DIR")
+os.environ["DOCPREP_MODELS_DIR"] = empty_models_dir
+try:
+    for media_ext in (".mp3", ".mp4", ".wav", ".m4a", ".mov"):
+        media_path = os.path.join(work, f"unconfigured{media_ext}")
+        with open(media_path, "wb") as f:
+            f.write(b"junkjunkjunkjunk")
+        m_events = []
+        m_outs = convert_files([media_path], progress_callback=m_events.append)
+        m_error = next((e for e in m_events if e["status"] == "error"), None)
+        check(
+            f"media routed to offline audio engine (model check): {media_ext}",
+            m_outs == [] and m_error is not None and (
+                "speech model" in (m_error["error"] or "").lower()
+                or "docprep-audio" in (m_error["error"] or "").lower()
+            ),
+            str(m_error and m_error["error"]),
+        )
+        os.remove(media_path)
+finally:
+    if prev_models_env is None:
+        os.environ.pop("DOCPREP_MODELS_DIR", None)
+    else:
+        os.environ["DOCPREP_MODELS_DIR"] = prev_models_env
 
 # 2d. newly supported formats
 from backend.converter import convert_to_markdown, SUPPORTED_EXTENSIONS, IMAGE_EXTENSIONS, CONVERTIBLE_EXTENSIONS
@@ -216,6 +243,7 @@ with _zipfile.ZipFile(inner_nested, "w") as z:
 with _zipfile.ZipFile(archive, "w") as z:
     z.writestr("report.html", "<html><body><h1>Zipped Report</h1><p>Email zip.person@example.com inside.</p></body></html>")
     z.writestr("song.mp3", b"ID3junk")
+    z.writestr("malware.exe", b"MZjunk")
     z.write(inner_nested, "nested.zip")
     z.writestr("sub/notes.txt", "plain text survives")
 
@@ -228,7 +256,8 @@ except ValueError as e:
 zip_md = convert_to_markdown(archive, allow_zip=True, redact_pii=True, redact_mode="Regex Only")
 check("zip converts when enabled", "Zipped Report" in zip_md and "plain text survives" in zip_md)
 check("zip content is redacted", "[REDACTED_EMAIL]" in zip_md and "zip.person@example.com" not in zip_md)
-check("zip skips blocked inner types", "song.mp3 (unsupported type)" in zip_md)
+check("zip skips media in archives", "song.mp3 (audio/video skipped in archives)" in zip_md)
+check("zip skips blocked inner types", "malware.exe (unsupported type)" in zip_md)
 check("zip skips nested archives", "nested.zip (nested archive)" in zip_md)
 
 big = os.path.join(zip_dir, "toomany.zip")
@@ -442,6 +471,304 @@ check("re-run rewrote the combined file in place",
       sum2.get("combined") == sum1.get("combined") and "second pass" in open(sum2["combined"], encoding="utf-8").read())
 code3, _ = run_core("--replace-from", os.path.join(work, "missing.json"))
 check("unreadable manifest refuses to run", code3 == 2)
+
+# 10. offline audio/video transcription, model catalog, speaker formatting & live skip
+import io
+import json
+import math
+import stat
+import struct
+import subprocess
+import threading
+import time
+import wave
+from contextlib import redirect_stdout
+from backend import audio as audio_mod
+from backend import models as models_mod
+import docprep_core
+
+# 9a. Hardware recommendation matrix & R2 mirror URL switch
+check(
+    "recommend_model macOS",
+    models_mod.recommend_model({"os": "macos", "arch": "aarch64", "ram_mb": 16384}) == "parakeet-tdt-0.6b-v3",
+)
+check(
+    "recommend_model Windows Vulkan >=6GB",
+    models_mod.recommend_model({"os": "windows", "vulkan": True, "vram_mb": 8192, "ram_mb": 16384})
+    == "whisper-large-v3-turbo-q8_0",
+)
+check(
+    "recommend_model Windows Vulkan 4-6GB",
+    models_mod.recommend_model({"os": "windows", "vulkan": True, "vram_mb": 4096, "ram_mb": 16384})
+    == "whisper-large-v3-turbo-q5_0",
+)
+check(
+    "recommend_model Windows CPU >=6GB RAM",
+    models_mod.recommend_model({"os": "windows", "vulkan": False, "vram_mb": 0, "ram_mb": 16384})
+    == "parakeet-tdt-0.6b-v3-int8",
+)
+check(
+    "recommend_model Windows low RAM",
+    models_mod.recommend_model({"os": "windows", "vulkan": False, "vram_mb": 0, "ram_mb": 4096})
+    == "whisper-small-q5_1",
+)
+
+prev_mirror = os.environ.get("DOCPREP_MODEL_MIRROR_URL")
+try:
+    os.environ.pop("DOCPREP_MODEL_MIRROR_URL", None)
+    hf_url = models_mod.hf_resolve_url("ggerganov/whisper.cpp", "ggml-small-q5_1.bin", r2_key="windows/whisper-small-q5_1/ggml-model.bin")
+    check("default HF URL", hf_url == "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin", hf_url)
+    os.environ["DOCPREP_MODEL_MIRROR_URL"] = "https://models.aidocprep.example.com/"
+    r2_url = models_mod.hf_resolve_url("ggerganov/whisper.cpp", "ggml-small-q5_1.bin", r2_key="windows/whisper-small-q5_1/ggml-model.bin")
+    check("R2 mirror override URL", r2_url == "https://models.aidocprep.example.com/windows/whisper-small-q5_1/ggml-model.bin", r2_url)
+finally:
+    if prev_mirror is None:
+        os.environ.pop("DOCPREP_MODEL_MIRROR_URL", None)
+    else:
+        os.environ["DOCPREP_MODEL_MIRROR_URL"] = prev_mirror
+
+# 9b. Speaker segment merging & transcript Markdown formatting
+raw_segs = [
+    {"start": 74.0, "end": 78.2, "speaker": "Speaker 1", "text": "Welcome everyone."},
+    {"start": 79.5, "end": 83.0, "speaker": "Speaker 1", "text": "Let's review Q3 numbers."},  # gap 1.3s <= 3.0s -> merge
+    {"start": 88.0, "end": 91.0, "speaker": "Speaker 1", "text": "Moving to the next slide."},  # gap 5.0s > 3.0s -> new turn
+    {"start": 91.4, "end": 95.0, "speaker": "Speaker 2", "text": "Sounds good to me."},
+]
+merged_segs = audio_mod.merge_speaker_segments(raw_segs)
+check("merge_speaker_segments count", len(merged_segs) == 3, str(len(merged_segs)))
+check("merge_speaker_segments text", merged_segs[0]["text"] == "Welcome everyone. Let's review Q3 numbers.")
+md_tx = audio_mod.format_transcript_markdown("Team Sync", raw_segs)
+check(
+    "format_transcript_markdown turns",
+    "**[00:01:14] Speaker 1:** Welcome everyone. Let's review Q3 numbers." in md_tx
+    and "**[00:01:28] Speaker 1:** Moving to the next slide." in md_tx
+    and "**[00:01:31] Speaker 2:** Sounds good to me." in md_tx,
+    md_tx[:180],
+)
+empty_tx = audio_mod.format_transcript_markdown("Silent Clip", [])
+check("format_transcript_markdown empty fallback", "*(No speech detected in audio track.)*" in empty_tx)
+
+# 9c. Speaker header protection during PII redaction (Regex + Custom Terms + spaCy NER)
+tx_pii_input = (
+    "# Weekly Call\n\n"
+    "**[00:01:14] Speaker 1:** Hi Alice Johnson, email me at alice@acme.io about Speaker notes.\n\n"
+    "**[00:02:05] Speaker 2:** Copy that, Speaker 1 — calling 415-555-0199 from San Francisco.\n"
+)
+tx_red_regex = redact_pii_content(tx_pii_input, mode="Regex Only", custom_terms="Speaker\nProjectX")
+check(
+    "redact preserves speaker prefixes against custom_terms",
+    "**[00:01:14] Speaker 1:**" in tx_red_regex
+    and "**[00:02:05] Speaker 2:**" in tx_red_regex
+    and "[REDACTED_EMAIL]" in tx_red_regex
+    and "[REDACTED_PHONE]" in tx_red_regex
+    and "about [REDACTED_TERM] notes" in tx_red_regex,
+    tx_red_regex,
+)
+tx_red_ner = redact_pii_content(tx_pii_input, mode="Local NER (spaCy)", custom_terms="Speaker")
+check(
+    "NER preserves speaker prefixes while redacting names/locations",
+    "**[00:01:14] Speaker 1:**" in tx_red_ner
+    and "**[00:02:05] Speaker 2:**" in tx_red_ner
+    and "Alice Johnson" not in tx_red_ner
+    and "San Francisco" not in tx_red_ner,
+    tx_red_ner,
+)
+
+# 9d. Real native audio sidecar hardware & media duration probe (when compiled binary is present)
+audio_test_dir = os.path.join(work, "audio_probe")
+os.makedirs(audio_test_dir, exist_ok=True)
+sample_wav = os.path.join(audio_test_dir, "tone.wav")
+with wave.open(sample_wav, "wb") as wf:
+    wf.setnchannels(1)
+    wf.setsampwidth(2)
+    wf.setframerate(16000)
+    frames = b"".join(
+        struct.pack("<h", int(12000 * math.sin(2 * math.pi * 440.0 * i / 16000.0)))
+        for i in range(16000 * 2)  # 2.0 seconds
+    )
+    wf.writeframes(frames)
+
+real_sidecar = audio_mod.find_audio_sidecar()
+if real_sidecar:
+    hw_live = audio_mod.probe_hardware()
+    check("native sidecar --hardware", hw_live.get("os") in ("macos", "windows") and int(hw_live.get("ram_mb", 0)) > 0, str(hw_live))
+    probe_targets = [sample_wav]
+    sample_m4a = os.path.join(audio_test_dir, "tone.m4a")
+    if sys.platform == "darwin" and os.path.exists("/usr/bin/afconvert"):
+        subprocess.run(["/usr/bin/afconvert", "-f", "m4af", "-d", "aac", sample_wav, sample_m4a], check=True, capture_output=True)
+        probe_targets.append(sample_m4a)
+    probed = audio_mod.probe_media_files(probe_targets)
+    check("native sidecar --probe wav duration", len(probed) == len(probe_targets) and 1.8 <= probed[0]["duration_sec"] <= 2.2 and probed[0]["has_audio"] is True, str(probed))
+    if len(probed) > 1:
+        check("native sidecar --probe m4a duration", 1.8 <= probed[1]["duration_sec"] <= 2.3 and probed[1]["has_audio"] is True, str(probed[1]))
+else:
+    print("[SKIP] native docprep-audio binary not compiled yet — skipping live probe test")
+
+# 9e. End-to-end mock sidecar conversion, YAML metadata, CLI --exclude & live per-file Skip
+mock_dir = os.path.join(work, "mock_audio_env")
+mock_models_root = os.path.join(mock_dir, "models")
+os.makedirs(mock_models_root, exist_ok=True)
+
+active_spec = models_mod.get_platform_catalog()[0]
+active_model_id = active_spec["id"]
+if active_spec["engine"] == "fluidaudio":
+    for rel in active_spec["required_paths"]:
+        p = os.path.join(mock_models_root, rel)
+        if rel.endswith(".mlmodelc"):
+            os.makedirs(p, exist_ok=True)
+            with open(os.path.join(p, "model.mil"), "wb") as fp:
+                fp.write(b"stub")
+        else:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "wb") as fp:
+                fp.write(b"{}")
+else:
+    for f_entry in active_spec.get("files", []) + models_mod.WINDOWS_DIARIZATION_FILES:
+        p = os.path.join(mock_models_root, f_entry["local_rel"])
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "wb") as fp:
+            fp.write(b"stub-onnx-or-ggml")
+
+mock_py = os.path.join(mock_dir, "mock_docprep_audio.py")
+with open(mock_py, "w", encoding="utf-8") as fp:
+    fp.write(
+        f"#!{sys.executable}\n"
+        "import json, os, sys, time\n"
+        "args = sys.argv[1:]\n"
+        "if '--hardware' in args:\n"
+        "    print(json.dumps({'os': 'macos', 'arch': 'aarch64', 'chip_or_gpu': 'Mock Chip', 'gpu_vendor': 'apple', 'vram_mb': 16384, 'ram_mb': 16384, 'vulkan': False, 'avx2': False}), flush=True)\n"
+        "    sys.exit(0)\n"
+        "if '--probe' in args:\n"
+        "    idx = args.index('--probe')\n"
+        "    print(json.dumps([{'path': p, 'duration_sec': 74.0, 'has_audio': True} for p in args[idx+1:]]), flush=True)\n"
+        "    sys.exit(0)\n"
+        "if '--transcribe' in args:\n"
+        "    target = args[args.index('--transcribe') + 1]\n"
+        "    if 'slow_cancel' in os.path.basename(target):\n"
+        "        print(json.dumps({'event': 'progress', 'stage': 'transcribing', 'pct': 15}), flush=True)\n"
+        "        time.sleep(10)\n"
+        "    print(json.dumps({'event': 'progress', 'stage': 'extracting_audio', 'pct': 100}), flush=True)\n"
+        "    print(json.dumps({'event': 'progress', 'stage': 'transcribing', 'pct': 65}), flush=True)\n"
+        "    print(json.dumps({'event': 'progress', 'stage': 'diarizing', 'pct': 90}), flush=True)\n"
+        "    print(json.dumps({\n"
+        "        'event': 'result',\n"
+        "        'duration_sec': 74.0,\n"
+        "        'language': 'en',\n"
+        "        'speakers': 2,\n"
+        "        'segments': [\n"
+        "            {'start': 2.0, 'end': 4.5, 'speaker': 'Speaker 1', 'text': 'Project kickoff started.'},\n"
+        "            {'start': 5.0, 'end': 8.0, 'speaker': 'Speaker 1', 'text': 'Contact bob@company.org for slides.'},\n"
+        "            {'start': 9.0, 'end': 12.0, 'speaker': 'Speaker 2', 'text': 'Will do, thanks!'}\n"
+        "        ]\n"
+        "    }), flush=True)\n"
+        "    sys.exit(0)\n"
+    )
+
+if sys.platform == "win32":
+    mock_bin = os.path.join(mock_dir, "mock_docprep_audio.cmd")
+    with open(mock_bin, "w", encoding="utf-8") as fp:
+        fp.write(f'@"{sys.executable}" "{mock_py}" %*\n')
+else:
+    mock_bin = mock_py
+    os.chmod(mock_bin, os.stat(mock_bin).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+prev_bin_env = os.environ.get("DOCPREP_AUDIO_BIN")
+prev_models_env = os.environ.get("DOCPREP_MODELS_DIR")
+try:
+    os.environ["DOCPREP_AUDIO_BIN"] = mock_bin
+    os.environ["DOCPREP_MODELS_DIR"] = mock_models_root
+    audio_mod.reset_cancelled_files()
+
+    check("mock model detected installed", models_mod.is_model_installed(active_model_id))
+
+    batch_dir = os.path.join(mock_dir, "batch")
+    os.makedirs(batch_dir, exist_ok=True)
+    call_m4a = os.path.join(batch_dir, "standup.m4a")
+    skip_mp4 = os.path.join(batch_dir, "excluded_demo.mp4")
+    doc_html = os.path.join(batch_dir, "agenda.html")
+    for p, content in ((call_m4a, b"fakedata"), (skip_mp4, b"fakedata"), (doc_html, b"<h1>Agenda</h1><p>Items</p>")):
+        with open(p, "wb") as fp:
+            fp.write(content)
+
+    # Test convert_files progress events, YAML metadata, redaction, and source_tokens=None
+    seen_events = []
+    conv_outs = convert_files(
+        [call_m4a],
+        progress_callback=seen_events.append,
+        inject_yaml=True,
+        redact_pii=True,
+        redact_mode="Regex Only",
+    )
+    check("media convert_files output written", len(conv_outs) == 1 and os.path.isfile(conv_outs[0]))
+    with open(conv_outs[0], "r", encoding="utf-8") as fp:
+        standup_md = fp.read()
+    check(
+        "media YAML frontmatter & merged redacted turns",
+        "duration: 1m 14s" in standup_md
+        and "speakers: 2" in standup_md
+        and f"transcription_model: {active_model_id}" in standup_md
+        and "**[00:00:02] Speaker 1:** Project kickoff started. Contact [REDACTED_EMAIL] for slides." in standup_md
+        and "**[00:00:09] Speaker 2:** Will do, thanks!" in standup_md,
+        standup_md[:260],
+    )
+    done_ev = [e for e in seen_events if e["status"] == "done"][0]
+    prog_evs = [e for e in seen_events if e["status"] == "progress"]
+    check("media emits intra-file progress events", len(prog_evs) >= 2 and any(e.get("stage") == "transcribing" for e in prog_evs))
+    check("media source_tokens is None", done_ev["source_tokens"] is None and done_ev.get("duration_sec") == 74.0 and done_ev.get("speakers") == 2)
+
+    # Test CLI --list-models --json and folder run with --exclude
+    buf_models = io.StringIO()
+    with redirect_stdout(buf_models):
+        rc_models = docprep_core.main(["--list-models", "--json"])
+    models_json = json.loads(buf_models.getvalue().strip())
+    check("CLI --list-models --json", rc_models == 0 and models_json["active_model"] == active_model_id)
+
+    os.remove(conv_outs[0])
+    buf_run = io.StringIO()
+    with redirect_stdout(buf_run):
+        rc_run = docprep_core.main([batch_dir, "--exclude", skip_mp4, "--conflict", "overwrite", "--json"])
+    run_lines = [json.loads(line) for line in buf_run.getvalue().splitlines() if line.strip()]
+    summary_ev = [e for e in run_lines if e.get("event") == "summary"][0]
+    check(
+        "CLI folder scan + --exclude skips unchecked media",
+        rc_run == 0
+        and summary_ev["converted"] == 2
+        and os.path.isfile(os.path.join(batch_dir, "standup.md"))
+        and os.path.isfile(os.path.join(batch_dir, "agenda.md"))
+        and not os.path.exists(os.path.join(batch_dir, "excluded_demo.md")),
+        str(summary_ev),
+    )
+
+    # Test live per-file Skip (kills active sidecar child without failing sibling files)
+    slow_mov = os.path.join(batch_dir, "slow_cancel_recording.mov")
+    with open(slow_mov, "wb") as fp:
+        fp.write(b"fakevideo")
+
+    live_events = []
+    def on_live_ev(ev):
+        live_events.append(ev)
+        if ev.get("status") == "progress" and ev.get("file") == slow_mov:
+            threading.Thread(target=lambda: (time.sleep(0.05), audio_mod.cancel_audio_file(slow_mov)), daemon=True).start()
+
+    t0 = time.time()
+    live_outs = convert_files([slow_mov, doc_html], progress_callback=on_live_ev, overwrite=True)
+    elapsed = time.time() - t0
+    skipped_evs = [e for e in live_events if e.get("file") == slow_mov and e.get("status") == "skipped"]
+    check(
+        "live cancel_audio_file terminates sidecar fast and marks skipped",
+        len(skipped_evs) == 1 and elapsed < 5.0 and len(live_outs) == 1 and live_outs[0].endswith("agenda.md"),
+        f"elapsed={elapsed:.2f}s outs={live_outs} events={[e.get('status') for e in live_events]}",
+    )
+finally:
+    audio_mod.reset_cancelled_files()
+    if prev_bin_env is None:
+        os.environ.pop("DOCPREP_AUDIO_BIN", None)
+    else:
+        os.environ["DOCPREP_AUDIO_BIN"] = prev_bin_env
+    if prev_models_env is None:
+        os.environ.pop("DOCPREP_MODELS_DIR", None)
+    else:
+        os.environ["DOCPREP_MODELS_DIR"] = prev_models_env
 
 shutil.rmtree(work, ignore_errors=True)
 print()

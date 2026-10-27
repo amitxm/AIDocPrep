@@ -1,13 +1,15 @@
 """docprep-core — headless CLI for the AI DocPrep conversion engine.
 
-Converts office documents to Markdown from the command line, and doubles as
-the machine-readable engine for GUI shells: with --json it emits one JSON
-event per line on stdout (start, file, combined, summary), so any front end
-(or script) can stream progress.
+Converts office documents and audio/video recordings to Markdown from the
+command line, and doubles as the machine-readable engine for GUI shells: with
+--json it emits one JSON event per line on stdout (start, file, combined,
+summary), so any front end (or script) can stream progress.
 
 Examples:
-  python docprep_core.py report.docx slides.pptx
+  python docprep_core.py report.docx slides.pptx meeting.m4a
   python docprep_core.py ./research --output combined-only --redact
+  python docprep_core.py --list-models
+  python docprep_core.py --download-model parakeet-tdt-0.6b-v3
   python docprep_core.py ./docs --json > events.jsonl
 """
 import os
@@ -24,8 +26,10 @@ warnings.filterwarnings("ignore", message="Couldn't find ffmpeg or avconv")
 
 from backend.converter import convert_files, scan_folder, estimate_tokens
 from backend.combiner import combine_files
+from backend.audio import cancel_audio_file, probe_hardware, reset_cancelled_files
+from backend.models import delete_model, download_model, list_models
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 ENGINE_NAMES = {
     "regex": "Regex Only",
@@ -46,9 +50,13 @@ def _handle_sigint(signum, frame):
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="docprep-core",
-        description="Convert documents (.docx, .pdf, .pptx, .xlsx, .xls, .msg, .epub, .ipynb, .html, .vtt) to clean Markdown.",
+        description=(
+            "Convert documents (.docx, .pdf, .pptx, .xlsx, .xls, .msg, .epub, .ipynb, .html, .vtt) "
+            "and audio/video (.mp3, .m4a, .wav, .flac, .ogg, .aac, .opus, .mp4, .mov, .webm, .mkv) "
+            "to clean Markdown."
+        ),
     )
-    p.add_argument("paths", nargs="+", help="files and/or folders to convert")
+    p.add_argument("paths", nargs="*", help="files and/or folders to convert")
     p.add_argument("--output", choices=OUTPUT_CHOICES, default="individual",
                    help="individual .md files, individual plus a combined file, or the combined file only (default: individual)")
     p.add_argument("--combined-name", default=None, metavar="NAME",
@@ -77,6 +85,22 @@ def build_parser() -> argparse.ArgumentParser:
                    help="write a JSON record of which output each file went to")
     p.add_argument("--replace-from", default=None, metavar="PATH",
                    help="re-run in place: overwrite the outputs recorded in a --manifest file instead of adding copies")
+    p.add_argument("--audio-model", default="", metavar="ID",
+                   help="speech model ID for audio/video transcription (default: active/recommended installed model)")
+    p.add_argument("--no-diarize", action="store_true",
+                   help="disable speaker diarization for audio/video files")
+    p.add_argument("--speakers", default="auto", metavar="COUNT",
+                   help="speaker count hint for diarization: auto, 2, 3, or 4+ (default: auto)")
+    p.add_argument("--exclude", action="append", default=None, metavar="PATH",
+                   help="specific file path to skip (repeatable)")
+    p.add_argument("--hardware-json", action="store_true",
+                   help="print detected CPU/GPU/VRAM capabilities as JSON and exit")
+    p.add_argument("--list-models", action="store_true",
+                   help="list available and installed offline transcription models and exit")
+    p.add_argument("--download-model", default=None, metavar="ID",
+                   help="download an offline transcription model (+ diarization weights) and exit")
+    p.add_argument("--delete-model", default=None, metavar="ID",
+                   help="delete an installed offline transcription model and exit")
     p.add_argument("--json", action="store_true", help="emit JSON-lines events on stdout")
     p.add_argument("--watchdog", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--quiet", action="store_true", help="only print the final summary (human mode)")
@@ -84,16 +108,25 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def collect_files(paths: list[str]) -> tuple[list[str], str]:
-    """Expands folders, dedupes, and returns (files, common_base_dir)."""
+def collect_files(paths: list[str], excludes: list[str] = None) -> tuple[list[str], str]:
+    """Expands folders, filters excluded paths, dedupes, and returns (files, common_base_dir)."""
+    excluded_norm = {
+        os.path.normcase(os.path.abspath(p))
+        for p in (excludes or [])
+    }
     files = []
     seen = set()
     dirs = []
     for path in paths:
         path = os.path.abspath(path)
+        if os.path.normcase(path) in excluded_norm:
+            continue
         if os.path.isdir(path):
             dirs.append(path)
             for f in scan_folder(path):
+                norm_f = os.path.normcase(os.path.abspath(f))
+                if norm_f in excluded_norm:
+                    continue
                 if f not in seen:
                     seen.add(f)
                     files.append(f)
@@ -144,8 +177,113 @@ def write_manifest(path: str, outputs: dict, combined: str | None) -> str | None
         return None
 
 
+def _start_watchdog_thread() -> None:
+    # GUI shells pass --watchdog: exit when stdin reaches EOF, and accept
+    # live JSON commands (`{"cmd": "skip", "file": "..."}`) while running.
+    import threading
+    from backend import audio as audio_mod
+
+    def _watch_stdin():
+        try:
+            for raw in sys.stdin.buffer:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if line.startswith("{"):
+                    try:
+                        msg = json.loads(line)
+                        if msg.get("cmd") == "skip" and msg.get("file"):
+                            cancel_audio_file(str(msg["file"]))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        with audio_mod._state_lock:
+            proc = audio_mod._active_proc
+        if proc is not None:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+        os._exit(130)
+
+    threading.Thread(target=_watch_stdin, daemon=True).start()
+
+
+def _handle_management_commands(args, emit) -> int:
+    if args.hardware_json:
+        emit(probe_hardware())
+        return 0
+
+    if args.list_models:
+        data = list_models()
+        if args.json:
+            emit(data)
+        else:
+            hw = data["hardware"]
+            print(f"Hardware: {hw.get('chip_or_gpu')} (RAM: {hw.get('ram_mb')} MB, VRAM: {hw.get('vram_mb')} MB)")
+            print(f"Models directory: {data['models_dir']}\n")
+            for m in data["models"]:
+                badges = []
+                if m["installed"]:
+                    badges.append("installed")
+                if m["recommended"]:
+                    badges.append("recommended")
+                badge_str = f" [{', '.join(badges)}]" if badges else ""
+                print(f"  {m['id']}{badge_str}")
+                print(f"    {m['name']} — ~{m['size_mb']} MB — {m['languages']}")
+                print(f"    {m['description']}")
+        return 0
+
+    if args.download_model:
+        if args.watchdog:
+            _start_watchdog_thread()
+        model_id = args.download_model.strip()
+
+        def on_dl(ev: dict):
+            if args.json:
+                emit(ev)
+            elif not args.quiet:
+                print(f"\rDownloading {model_id} ({ev['stage']}): {ev['pct']}%", end="", flush=True)
+
+        try:
+            res = download_model(model_id, progress_cb=on_dl)
+            if args.json:
+                emit({"event": "download_complete", **res})
+            else:
+                if not args.quiet:
+                    print()
+                mb = round(res.get("disk_bytes", 0) / (1024 * 1024), 1)
+                print(f"Installed {model_id} ({mb} MB)")
+            return 0
+        except Exception as e:
+            if args.json:
+                emit({"event": "error", "message": str(e)})
+            else:
+                print(f"\ndocprep-core: download failed: {e}", file=sys.stderr)
+            return 1
+
+    if args.delete_model:
+        model_id = args.delete_model.strip()
+        try:
+            res = delete_model(model_id)
+            if args.json:
+                emit({"event": "model_deleted", **res})
+            else:
+                print(f"Deleted {model_id}")
+            return 0
+        except Exception as e:
+            if args.json:
+                emit({"event": "error", "message": str(e)})
+            else:
+                print(f"docprep-core: delete failed: {e}", file=sys.stderr)
+            return 1
+
+    return -1
+
+
 def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -159,11 +297,20 @@ def main(argv=None) -> int:
         if not args.json and not args.quiet:
             print(text, flush=True)
 
+    mgmt_rc = _handle_management_commands(args, emit)
+    if mgmt_rc >= 0:
+        return mgmt_rc
+
+    if not args.paths:
+        parser.error("the following arguments are required: paths")
+
+    reset_cancelled_files()
+
     missing = [p for p in args.paths if not os.path.exists(p)]
     for m in missing:
         print(f"docprep-core: path not found: {m}", file=sys.stderr)
 
-    files, base_dir = collect_files([p for p in args.paths if os.path.exists(p)])
+    files, base_dir = collect_files([p for p in args.paths if os.path.exists(p)], excludes=args.exclude)
     if not files:
         print("docprep-core: no supported files found", file=sys.stderr)
         return 2
@@ -188,20 +335,7 @@ def main(argv=None) -> int:
     signal.signal(signal.SIGINT, _handle_sigint)
 
     if args.watchdog:
-        # GUI shells pass --watchdog: exit when stdin reaches EOF. On Windows,
-        # killing the PyInstaller onefile bootloader orphans this process; the
-        # shell dropping its pipe handles is the reliable death signal.
-        import threading
-
-        def _watch_stdin():
-            try:
-                while sys.stdin.buffer.read(4096):
-                    pass
-            except Exception:
-                pass
-            os._exit(130)
-
-        threading.Thread(target=_watch_stdin, daemon=True).start()
+        _start_watchdog_thread()
 
     started = time.time()
 
@@ -210,17 +344,19 @@ def main(argv=None) -> int:
     else:
         say(f"Converting {len(files)} file{'s' if len(files) != 1 else ''}...")
 
-    stats = {"done": 0, "errors": 0, "tokens": 0, "src": 0, "out_comparable": 0}
+    stats = {"done": 0, "errors": 0, "skipped": 0, "tokens": 0, "src": 0, "out_comparable": 0}
     written = {}  # source -> output, for --manifest
 
     def progress(event):
-        if event["status"] == "started":
+        if event["status"] in ("started", "progress"):
             if args.json:
                 emit({"event": "file", **event})
             return
         stats["done"] += 1
         if event["status"] == "error":
             stats["errors"] += 1
+        elif event["status"] == "skipped":
+            stats["skipped"] += 1
         else:
             written[event["file"]] = event["output"]
             stats["tokens"] += event["tokens"]
@@ -231,6 +367,8 @@ def main(argv=None) -> int:
             emit({"event": "file", **event})
         elif event["status"] == "error":
             say(f"[{event['done']}/{event['total']}] FAILED {event['file']}: {event['error']}")
+        elif event["status"] == "skipped":
+            say(f"[{event['done']}/{event['total']}] SKIPPED {event['file']}")
         else:
             say(f"[{event['done']}/{event['total']}] {event['output']} (~{event['tokens']:,} tokens)")
 
@@ -248,6 +386,9 @@ def main(argv=None) -> int:
         allow_zip=args.allow_zip,
         ocr=args.ocr,
         output_paths=replace_outputs,
+        diarize=not args.no_diarize,
+        speakers=args.speakers,
+        audio_model=args.audio_model,
     )
 
     combined_path = None
@@ -291,10 +432,12 @@ def main(argv=None) -> int:
 
     elapsed = round(time.time() - started, 2)
     saved = max(0, stats["src"] - stats["out_comparable"])
+    converted_count = max(0, stats["done"] - stats["errors"] - stats["skipped"])
     summary = {
         "event": "summary",
-        "converted": stats["done"] - stats["errors"],
+        "converted": converted_count,
         "failed": stats["errors"],
+        "skipped": stats["skipped"],
         "tokens": total_tokens,
         "saved_vs_raw": saved,
         "src_tokens": stats["src"],
@@ -309,7 +452,10 @@ def main(argv=None) -> int:
         emit(summary)
     else:
         status = "Cancelled" if _cancelled else "Done"
-        line = f"{status}: {summary['converted']} converted, {summary['failed']} failed, ~{total_tokens:,} tokens in {elapsed}s"
+        line = f"{status}: {summary['converted']} converted, {summary['failed']} failed"
+        if summary["skipped"]:
+            line += f", {summary['skipped']} skipped"
+        line += f", ~{total_tokens:,} tokens in {elapsed}s"
         if stats["src"] > stats["out_comparable"] > 0:
             pct = min(99, round(100 * (1 - stats["out_comparable"] / stats["src"])))
             if pct > 0:

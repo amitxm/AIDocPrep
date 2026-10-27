@@ -7,8 +7,15 @@ import concurrent.futures
 import urllib.request
 import json
 from markitdown import MarkItDown
+from backend.audio import (
+    MEDIA_EXTENSIONS,
+    AudioSkippedError,
+    is_file_cancelled,
+    transcribe_media_file,
+)
 
-SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".xls", ".msg", ".epub", ".ipynb", ".vtt", ".html", ".htm"]
+DOCUMENT_EXTENSIONS = [".docx", ".pdf", ".pptx", ".xlsx", ".xls", ".msg", ".epub", ".ipynb", ".vtt", ".html", ".htm"]
+SUPPORTED_EXTENSIONS = DOCUMENT_EXTENSIONS + MEDIA_EXTENSIONS
 
 # Images convert only when OCR is enabled (see backend/ocr.py); without it an
 # image yields no text, so converting one would silently write an empty file.
@@ -22,7 +29,9 @@ IMAGE_UNSUPPORTED_MESSAGE = (
 
 # Everything convert_file will accept. Anything else is rejected up front so
 # no file ever reaches a converter with side effects — markitdown's audio
-# path, for example, sends audio to a cloud speech API when run from source.
+# path, for example, sends audio to a cloud speech API when run from source
+# (MEDIA_EXTENSIONS are intercepted before MarkItDown and routed to the local
+# offline `docprep-audio` sidecar).
 CONVERTIBLE_EXTENSIONS = SUPPORTED_EXTENSIONS + [".txt", ".csv", ".json", ".md"]
 
 DEFAULT_OLLAMA_PROMPT = (
@@ -169,7 +178,7 @@ def parse_vtt(file_path: str) -> str:
 
     return "\n\n".join(text_lines)
 
-def generate_yaml_frontmatter(original_file: str) -> str:
+def generate_yaml_frontmatter(original_file: str, extra_fields: dict = None) -> str:
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     name = os.path.basename(original_file)
     ext = os.path.splitext(original_file)[1].lower()
@@ -178,8 +187,18 @@ def generate_yaml_frontmatter(original_file: str) -> str:
     yaml += f"original_filename: {name}\n"
     yaml += f"source_format: {ext}\n"
     yaml += f"date_converted: {date_str}\n"
+    if extra_fields:
+        for k, v in extra_fields.items():
+            if v is not None and v != "":
+                yaml += f"{k}: {v}\n"
     yaml += "---\n\n"
     return yaml
+
+
+_SPEAKER_HEADER_RE = re.compile(
+    r"^(\*\*\[\d{2}:\d{2}:\d{2}\](?:\s+Speaker\s+\d+:)?\*\*)",
+    flags=re.MULTILINE,
+)
 
 
 def _load_spacy():
@@ -193,6 +212,16 @@ def _load_spacy():
 
 def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None) -> str:
     """Scans text and replaces common PII, API keys, credentials, and network addresses with redacted labels."""
+    # Protect transcript turn headers (e.g. `**[00:01:14] Speaker 1:**`) so
+    # custom terms, NER, and Ollama never alter structural speaker prefixes.
+    protected_headers: list[str] = []
+
+    def _stash_header(match: re.Match) -> str:
+        idx = len(protected_headers)
+        protected_headers.append(match.group(1))
+        return f"[[DOCPREP_TURN_{idx}]]"
+
+    text = _SPEAKER_HEADER_RE.sub(_stash_header, text)
     # Run custom terms redaction if present
     if custom_terms:
         terms = [t.strip() for t in custom_terms.split("\n") if t.strip()]
@@ -341,6 +370,9 @@ def redact_pii_content(text: str, mode: str = "Regex Only", ollama_model: str = 
         except Exception as e:
             print(f"Error running Ollama redaction: {e}", file=sys.stderr)
 
+    for idx, header in enumerate(protected_headers):
+        text = text.replace(f"[[DOCPREP_TURN_{idx}]]", header)
+
     return text
 
 # ZIP conversion is opt-in and never delegated to markitdown's archive
@@ -375,6 +407,9 @@ def _convert_zip_archive(file_path: str) -> str:
                 continue
             if ext == ".zip":
                 skipped.append(f"{name} (nested archive)")
+                continue
+            if ext in MEDIA_EXTENSIONS:
+                skipped.append(f"{name} (audio/video skipped in archives)")
                 continue
             if ext not in CONVERTIBLE_EXTENSIONS:
                 skipped.append(f"{name} (unsupported type)")
@@ -414,7 +449,7 @@ def _convert_zip_archive(file_path: str) -> str:
     return "\n".join(parts)
 
 
-def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False) -> str:
+def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, diarize: bool = True, speakers: str = "auto", audio_model: str = "", media_progress_callback=None, media_meta_out: dict = None) -> str:
     """
     Converts a single file and returns the Markdown as a string.
     Writes nothing to disk — callers decide where (or whether) to persist.
@@ -422,7 +457,12 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
+    if is_file_cancelled(file_path):
+        raise AudioSkippedError("Skipped by user")
+
     ext = os.path.splitext(file_path)[1].lower()
+    yaml_extra = None
+
     if ext == ".zip":
         if not allow_zip:
             raise ValueError("Unsupported file type: .zip (ZIP conversion is off by default; enable it in Settings)")
@@ -434,6 +474,24 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
         text_content = ocr_mod.ocr_image_file(file_path)
         if not text_content:
             raise ValueError("No readable text found in this image")
+    elif ext in MEDIA_EXTENSIONS:
+        media_res = transcribe_media_file(
+            file_path,
+            model_id=audio_model,
+            diarize=diarize,
+            speakers=speakers,
+            progress_cb=media_progress_callback,
+        )
+        text_content = media_res["markdown"]
+        yaml_extra = {
+            "duration": media_res["duration_human"],
+            "speakers": media_res["speakers"] if diarize else None,
+            "transcription_model": media_res["model_id"],
+        }
+        if media_meta_out is not None:
+            media_meta_out["duration_sec"] = media_res["duration_sec"]
+            media_meta_out["speakers"] = media_res["speakers"]
+            media_meta_out["model_id"] = media_res["model_id"]
     elif ext not in CONVERTIBLE_EXTENSIONS:
         raise ValueError(f"Unsupported file type: {ext or 'no extension'}")
     elif ext == ".vtt":
@@ -463,7 +521,7 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
                 text_content = (text_content or "").rstrip() + ocr_mod.unread_images_note(unread, ext)
 
     if inject_yaml:
-        text_content = generate_yaml_frontmatter(file_path) + text_content
+        text_content = generate_yaml_frontmatter(file_path, extra_fields=yaml_extra) + text_content
 
     if redact_pii:
         text_content = redact_pii_content(text_content, mode=redact_mode, ollama_model=ollama_model, custom_prompt=custom_prompt, custom_terms=custom_terms)
@@ -471,9 +529,9 @@ def convert_to_markdown(file_path: str, inject_yaml: bool = False, redact_pii: b
     return text_content
 
 
-def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_path: str = None) -> str:
+def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_path: str = None, diarize: bool = True, speakers: str = "auto", audio_model: str = "", media_progress_callback=None, media_meta_out: dict = None) -> str:
     """
-    Converts a single file to Markdown using markitdown (or custom VTT parser).
+    Converts a single file to Markdown using markitdown (or custom VTT / offline audio sidecar).
     Returns the path to the generated .md file.
     output_path, when given, is written in place: a re-run replaces the file an
     earlier run produced instead of adding a copy next to it.
@@ -488,6 +546,11 @@ def convert_file(file_path: str, overwrite: bool = True, inject_yaml: bool = Fal
         custom_terms=custom_terms,
         allow_zip=allow_zip,
         ocr=ocr,
+        diarize=diarize,
+        speakers=speakers,
+        audio_model=audio_model,
+        media_progress_callback=media_progress_callback,
+        media_meta_out=media_meta_out,
     )
 
     if not output_path:
@@ -519,12 +582,13 @@ def scan_folder(folder_path: str, extensions: list[str] = None) -> list[str]:
     return target_files
 
 
-def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_paths: dict = None) -> list[str]:
+def convert_files(file_paths: list[str], progress_callback=None, cancel_check=None, overwrite: bool = True, inject_yaml: bool = False, redact_pii: bool = False, redact_mode: str = "Regex Only", ollama_model: str = "llama3", custom_prompt: str = None, custom_terms: str = None, allow_zip: bool = False, ocr: bool = False, output_paths: dict = None, diarize: bool = True, speakers: str = "auto", audio_model: str = "") -> list[str]:
     """
     Converts a list of files to Markdown in parallel.
 
     progress_callback receives one event dict per finished file:
-      {"file", "status": "done"|"error", "output", "tokens", "error", "done", "total"}
+      {"file", "status": "done"|"error"|"skipped", "output", "tokens", "error", "done", "total"}
+    plus intra-file progress events (`status == "progress"`) for audio/video items.
     cancel_check() returning True stops scheduling new files (in-flight ones finish).
     output_paths optionally maps a source path to the exact output to write,
     so a batch can be re-run in place; unmapped files follow `overwrite`.
@@ -534,18 +598,61 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
         output_paths = {os.path.normcase(os.path.abspath(k)): v for k, v in output_paths.items()}
     total = len(file_paths)
     converted_files = []
+    media_meta_by_file: dict[str, dict] = {}
+    meta_lock = threading.Lock()
 
     # ~75% of CPU cores (minimum 1) so conversion doesn't bog down the machine
     cpu_cores = os.cpu_count() or 4
     optimal_workers = max(1, int(cpu_cores * 0.75))
 
     def convert_one(file_path):
+        if is_file_cancelled(file_path):
+            raise AudioSkippedError("Skipped by user")
+
         if progress_callback:
             # "started" lets UIs show which file is being worked on; heavy
             # files can take a while between completion events
             progress_callback({"file": file_path, "status": "started", "output": None, "tokens": 0, "source_tokens": None, "error": None, "done": None, "total": total})
+
+        def on_media_progress(stage: str, pct: int):
+            if progress_callback:
+                progress_callback({
+                    "file": file_path,
+                    "status": "progress",
+                    "stage": stage,
+                    "pct": pct,
+                    "output": None,
+                    "tokens": 0,
+                    "source_tokens": None,
+                    "error": None,
+                    "done": None,
+                    "total": total,
+                })
+
         dest = output_paths.get(os.path.normcase(os.path.abspath(file_path))) if output_paths else None
-        return convert_file(file_path, overwrite, inject_yaml, redact_pii, redact_mode, ollama_model, custom_prompt, custom_terms, allow_zip=allow_zip, ocr=ocr, output_path=dest)
+        meta_out: dict = {}
+        out = convert_file(
+            file_path,
+            overwrite,
+            inject_yaml,
+            redact_pii,
+            redact_mode,
+            ollama_model,
+            custom_prompt,
+            custom_terms,
+            allow_zip=allow_zip,
+            ocr=ocr,
+            output_path=dest,
+            diarize=diarize,
+            speakers=speakers,
+            audio_model=audio_model,
+            media_progress_callback=on_media_progress,
+            media_meta_out=meta_out,
+        )
+        if meta_out:
+            with meta_lock:
+                media_meta_by_file[file_path] = meta_out
+        return out
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         future_to_file = {
@@ -575,10 +682,18 @@ def convert_files(file_paths: list[str], progress_callback=None, cancel_check=No
                 except OSError:
                     pass
                 event["source_tokens"] = estimate_source_tokens(file_path, output_tokens=event["tokens"])
+                with meta_lock:
+                    mmeta = media_meta_by_file.get(file_path)
+                if mmeta:
+                    event["duration_sec"] = mmeta.get("duration_sec")
+                    event["speakers"] = mmeta.get("speakers")
                 if not ocr and os.path.splitext(file_path)[1].lower() in (".pdf", ".pptx", ".docx", ".xlsx"):
                     # Lets UIs flag which files in a batch hold text OCR would have read
                     from backend import ocr as ocr_mod
                     event["unread_images"] = ocr_mod.count_unread_images(file_path, out_text)
+            except AudioSkippedError:
+                event["status"] = "skipped"
+                event["error"] = None
             except Exception as e:
                 event["status"] = "error"
                 event["error"] = str(e)
@@ -597,7 +712,7 @@ def convert_folder(folder_path: str, extensions: list[str] = None, progress_call
     target_files = scan_folder(folder_path, extensions)
 
     def event_callback(event):
-        if progress_callback and event["status"] != "started":
+        if progress_callback and event["status"] not in ("started", "progress"):
             progress_callback(event["done"], event["total"])
 
     return convert_files(

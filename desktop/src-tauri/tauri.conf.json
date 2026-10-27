@@ -27,7 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/docprep-core"],
+    "externalBin": ["binaries/docprep-core", "binaries/docprep-audio"],
     "macOS": {
       "entitlements": "./entitlements.plist"
     },

@@ -14,6 +14,9 @@ DEFAULTS = {
     "output_mode": "both",            # "individual" | "both" | "combined_only"
     "zip": False,                     # opt-in: convert ZIP archives (filtered + capped)
     "ocr": False,                     # opt-in: OCR scanned PDFs and images in documents
+    "diarize": True,                  # identify speakers in audio/video transcripts
+    "speakers": "auto",               # "auto" | "2" | "3" | "4+"
+    "audio_model": "",                # empty = auto-select installed model
     "redact": False,
     "redact_engine": "Regex Only",    # "Regex Only" | "Local NER (spaCy)" | "Local LLM (Ollama)"
     "ollama_model": "llama3",
@@ -46,6 +49,22 @@ def cache_dir() -> str:
     else:
         base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
         return os.path.join(base, "aidocprep")
+
+
+def models_dir() -> str:
+    """Persistent local directory for downloaded speech & diarization models.
+    Kept out of OS-purgeable Caches so multi-hundred-MB downloads aren't evicted."""
+    override = os.environ.get("DOCPREP_MODELS_DIR")
+    if override:
+        return override
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        return os.path.join(base, APP_NAME, "models")
+    elif sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~/Library/Application Support"), APP_NAME, "models")
+    else:
+        base = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+        return os.path.join(base, "aidocprep", "models")
 
 
 def load_settings() -> dict:

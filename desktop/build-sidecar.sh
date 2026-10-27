@@ -46,6 +46,22 @@ if [ "$OS_NAME" = "Darwin" ]; then
   mv "$STAGE/docprep-core" "$BIN/docprep-core-$TRIPLE"
   echo "Sidecar (onefile) built and placed at: $BIN/docprep-core-$TRIPLE"
 
+  echo "Building macOS native audio sidecar (FluidAudio CoreML)..."
+  swift build --package-path audio-sidecar/macos -c release
+  rm -rf "$BIN"/docprep-audio*
+  cp "audio-sidecar/macos/.build/release/docprep-audio" "$BIN/docprep-audio-$TRIPLE"
+  chmod +x "$BIN/docprep-audio-$TRIPLE"
+  strip -x "$BIN/docprep-audio-$TRIPLE" 2>/dev/null || true
+
+  if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+    codesign --force --options runtime --timestamp \
+      --entitlements "desktop/src-tauri/entitlements.plist" \
+      --sign "$APPLE_SIGNING_IDENTITY" \
+      "$BIN/docprep-audio-$TRIPLE"
+    echo "✓ Signed audio sidecar: $BIN/docprep-audio-$TRIPLE"
+  fi
+  echo "Audio sidecar built and placed at: $BIN/docprep-audio-$TRIPLE"
+
 else
   echo "Building Linux sidecar (onedir layout)..."
   .venv/bin/pyinstaller --onedir --noconfirm --name docprep-core \

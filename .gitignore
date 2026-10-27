@@ -13,7 +13,10 @@ combined_master.md
 
 Output/
 
-# Tauri desktop app
+# Tauri desktop app & native sidecar builds
+audio-sidecar/macos/.build/
+audio-sidecar/macos/.swiftpm/
+audio-sidecar/windows/target/
 desktop/node_modules/
 desktop/build/
 desktop/.svelte-kit/
