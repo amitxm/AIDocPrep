@@ -5,7 +5,7 @@
 <h1 align="center">AI DocPrep</h1>
 
 <p align="center">
-  Convert PDFs, Word docs, decks, spreadsheets, ebooks, audio &amp; video recordings, and more into clean, token-efficient Markdown, and redact the private parts. All of it happens on your computer. Nothing gets uploaded.
+  Convert PDFs, Word docs, decks, spreadsheets, ebooks, audio &amp; video recordings, and more into clean, token-efficient Markdown, and redact the private parts. It all happens on your own computer.
 </p>
 
 <p align="center">
